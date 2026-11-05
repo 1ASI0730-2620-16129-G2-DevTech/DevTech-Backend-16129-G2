@@ -9,7 +9,7 @@ namespace DevTech.PickupsDeliveries.Domain.Model.Aggregates;
 /// <remarks>
 ///     This aggregate root protects the pickup and delivery business rules:
 ///     <list type="bullet">
-///         <item><description>It always belongs to a valid order.</description></item>
+///         <item><description>It always belongs to an order (the order identifier is never empty).</description></item>
 ///         <item><description>It always has a valid address.</description></item>
 ///         <item><description>Its type is always a defined <see cref="ServiceType" /> (Pickup or Delivery).</description></item>
 ///         <item><description>It always starts with the <see cref="PickupDeliveryStatus.Scheduled" /> status.</description></item>
@@ -39,14 +39,14 @@ public partial class PickupDelivery
     /// </remarks>
     /// <param name="command">The SchedulePickupDeliveryCommand command</param>
     /// <exception cref="ArgumentNullException">Thrown when command or its address is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">
-    ///     Thrown when the order identifier is zero or negative, or when the service type is not defined.
-    /// </exception>
+    /// <exception cref="ArgumentException">Thrown when the order identifier is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the service type is not defined.</exception>
     public PickupDelivery(SchedulePickupDeliveryCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(command.Address);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.OrderId);
+        if (command.OrderId == Guid.Empty)
+            throw new ArgumentException("The order identifier cannot be empty.", nameof(command));
 
         if (!Enum.IsDefined(command.Type))
             throw new ArgumentOutOfRangeException(nameof(command), command.Type, "The service type is not defined.");
@@ -65,7 +65,10 @@ public partial class PickupDelivery
     /// <summary>
     ///     Gets the identifier of the related order.
     /// </summary>
-    public int OrderId { get; private set; }
+    /// <remarks>
+    ///     Reference by identifier to the Order Management bounded context, never by object.
+    /// </remarks>
+    public Guid OrderId { get; private set; }
 
     /// <summary>
     ///     Gets the address where the service takes place.

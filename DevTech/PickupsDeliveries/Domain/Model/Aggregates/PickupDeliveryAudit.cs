@@ -1,4 +1,4 @@
-﻿using DevTech.Shared.Domain.Model.Entities;
+﻿using Acme.Center.Platform.Shared.Domain.Model.Entities;
 
 namespace DevTech.PickupsDeliveries.Domain.Model.Aggregates;
 
@@ -13,7 +13,19 @@ namespace DevTech.PickupsDeliveries.Domain.Model.Aggregates;
 /// </remarks>
 public partial class PickupDelivery : IAuditableEntity
 {
+    /// <summary>
+    ///     Gets the timestamp when this pickup or delivery was created.
+    /// </summary>
+    /// <remarks>
+    ///     Automatically set once by the persistence layer on first insert. Maps to column: created_at.
+    /// </remarks>
     public DateTimeOffset? CreatedAt { get; set; }
-    
+
+    /// <summary>
+    ///     Gets the timestamp when this pickup or delivery was last updated.
+    /// </summary>
+    /// <remarks>
+    ///     Automatically refreshed by the persistence layer on every save. Maps to column: updated_at.
+    /// </remarks>
     public DateTimeOffset? UpdatedAt { get; set; }
 }
