@@ -10,8 +10,15 @@
 /// </remarks>
 public sealed record DeliveryAddress
 {
-    private const int StreetMaxLength = 255;
-    private const int CityMaxLength = 100;
+    /// <summary>
+    ///     Maximum number of characters allowed for the street.
+    /// </summary>
+    public const int StreetMaxLength = 255;
+
+    /// <summary>
+    ///     Maximum number of characters allowed for the city.
+    /// </summary>
+    public const int CityMaxLength = 100;
 
     /// <summary>
     ///     Initializes a new <see cref="DeliveryAddress" /> with the given street and city.
