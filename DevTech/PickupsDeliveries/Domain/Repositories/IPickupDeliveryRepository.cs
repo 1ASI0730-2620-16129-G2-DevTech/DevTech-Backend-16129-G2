@@ -17,7 +17,7 @@ public interface IPickupDeliveryRepository : IBaseRepository<PickupDelivery>
     /// <returns>
     ///     An Enumerable containing the pickup and delivery objects if found, or empty otherwise.
     /// </returns>
-    Task<IEnumerable<PickupDelivery>> FindByOrderIdAsync(int orderId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<PickupDelivery>> FindByOrderIdAsync(Guid orderId, CancellationToken cancellationToken = default);
 
     /// <summary>
     ///     Find the pickup or the delivery of an order.
@@ -28,6 +28,6 @@ public interface IPickupDeliveryRepository : IBaseRepository<PickupDelivery>
     /// <returns>
     ///     The pickup or delivery object if found, or null otherwise.
     /// </returns>
-    Task<PickupDelivery?> FindByOrderIdAndTypeAsync(int orderId, ServiceType type,
+    Task<PickupDelivery?> FindByOrderIdAndTypeAsync(Guid orderId, ServiceType type,
         CancellationToken cancellationToken = default);
 }
