@@ -23,7 +23,6 @@
       <Folder Include="LaundryOperations\Application\" />
       <Folder Include="LaundryOperations\Domain\Model\Aggregates\" />
       <Folder Include="LaundryOperations\Domain\Model\Commands\" />
-      <Folder Include="LaundryOperations\Domain\Model\Queries\" />
       <Folder Include="LaundryOperations\Interfaces\" />
     </ItemGroup>
 
