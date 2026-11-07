@@ -9,7 +9,7 @@
     <ItemGroup>
         <PackageReference Include="Cortex.Mediator" Version="3.1.2" />
         <PackageReference Include="Humanizer" Version="3.0.10" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
           <PrivateAssets>all</PrivateAssets>
@@ -17,6 +17,14 @@
         </PackageReference>
         <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.12" />
         <PackageReference Include="Scalar.AspNetCore" Version="2.19.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="LaundryOperations\Application\" />
+      <Folder Include="LaundryOperations\Domain\Model\Aggregates\" />
+      <Folder Include="LaundryOperations\Domain\Model\Commands\" />
+      <Folder Include="LaundryOperations\Domain\Model\Queries\" />
+      <Folder Include="LaundryOperations\Interfaces\" />
     </ItemGroup>
 
 </Project>
