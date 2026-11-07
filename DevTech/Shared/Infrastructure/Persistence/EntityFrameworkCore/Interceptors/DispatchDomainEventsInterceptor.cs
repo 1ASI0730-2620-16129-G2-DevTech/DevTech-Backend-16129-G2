@@ -8,25 +8,25 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Intercep
 
 /// <summary>
 ///     EF Core interceptor that automatically dispatches domain events recorded on aggregate roots
-///     when changes are saved to the database.
+///     after changes are successfully saved to the database.
 /// </summary>
 public sealed class DispatchDomainEventsInterceptor(IMediator mediator) : SaveChangesInterceptor
 {
     /// <inheritdoc />
-    public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
+    public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
     {
         DispatchDomainEvents(eventData.Context).GetAwaiter().GetResult();
-        return base.SavingChanges(eventData, result);
+        return base.SavedChanges(eventData, result);
     }
 
     /// <inheritdoc />
-    public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
-        DbContextEventData eventData,
-        InterceptionResult<int> result,
+    public override async ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData eventData,
+        int result,
         CancellationToken cancellationToken = default)
     {
         await DispatchDomainEvents(eventData.Context, cancellationToken);
-        return await base.SavingChangesAsync(eventData, result, cancellationToken);
+        return await base.SavedChangesAsync(eventData, result, cancellationToken);
     }
 
     private async Task DispatchDomainEvents(DbContext? context, CancellationToken cancellationToken = default)
@@ -50,7 +50,9 @@ public sealed class DispatchDomainEventsInterceptor(IMediator mediator) : SaveCh
 
         foreach (var domainEvent in domainEvents)
         {
-            await mediator.PublishAsync(domainEvent, cancellationToken);
+            // Publish using the runtime (concrete) event type; publishing it as INotification would not
+            // reach the IEventHandler<TEvent> registered for that specific event.
+            await mediator.PublishAsync((dynamic)domainEvent, cancellationToken);
         }
     }
 }
