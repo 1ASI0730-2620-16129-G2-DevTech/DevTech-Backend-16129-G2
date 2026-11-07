@@ -1,4 +1,4 @@
-using Acme.Center.Platform.Shared.Domain.Model.Entities;
+using DevTech.Shared.Domain.Model.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
