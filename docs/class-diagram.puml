@@ -124,104 +124,313 @@ package "OrderManagement" {
 package "LaundryOperations" {
 
   package "Interfaces.REST" {
-    class LaundryBatchesController {
-      +StartBatch(StartLaundryBatchResource, CancellationToken) : Task<ActionResult>
-      +GetBatchById(int, CancellationToken) : Task<ActionResult>
+    class LaundryOrdersController {
+      +GetLaundryOrderById(int, CancellationToken) : Task<ActionResult>
+      +GetAllLaundryOrders(CancellationToken) : Task<ActionResult>
+      +ClassifyLaundryOrder(int, CancellationToken) : Task<ActionResult>
+      +AssignWashingCycle(int, AssignWashingCycleResource, CancellationToken) : Task<ActionResult>
+      +AssignResource(int, AssignResourceResource, CancellationToken) : Task<ActionResult>
+      +AdvanceStage(int, CancellationToken) : Task<ActionResult>
+      +PrioritizeLaundryOrder(int, PrioritizeLaundryOrderResource, CancellationToken) : Task<ActionResult>
+    }
+
+    class LaundryResourcesController {
+      +GetResourcesByLaundryId(int, CancellationToken) : Task<ActionResult>
+      +ReleaseResource(int, CancellationToken) : Task<ActionResult>
+    }
+
+    class WashingCyclesController {
+      +GetAllWashingCycles(CancellationToken) : Task<ActionResult>
     }
 
     package "Resources" {
-      class LaundryBatchResource <<resource>> {
+      class LaundryOrderResource <<resource>> {
         +int Id
-        +int MachineId
-        +string Stage
-      }
-      class StartLaundryBatchResource <<resource>> {
-        +int MachineId
         +int OrderId
+        +string CurrentStage
+        +string Priority
+        +int? WashingCycleId
+        +int? ResourceId
+        +DateTimeOffset? ExpectedCompletion
+        +bool IsReady
+      }
+      class AssignWashingCycleResource <<resource>> {
+        +int WashingCycleId
+      }
+      class AssignResourceResource <<resource>> {
+        +int ResourceId
+      }
+      class PrioritizeLaundryOrderResource <<resource>> {
+        +string Priority
+      }
+      class LaundryResourceResource <<resource>> {
+        +int Id
+        +int LaundryId
+        +string Name
+        +string Status
+        +int Capacity
+      }
+      class WashingCycleResource <<resource>> {
+        +int Id
+        +string Name
+        +int DurationMinutes
+        +string CompatibleType
       }
     }
 
     package "Transform" {
-      class LaundryBatchResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(LaundryBatch) : LaundryBatchResource
+      class LaundryOrderResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(LaundryOrder) : LaundryOrderResource
       }
-      class StartLaundryBatchCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(StartLaundryBatchResource) : StartLaundryBatchCommand
+      class LaundryResourceResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(LaundryResource) : LaundryResourceResource
+      }
+      class WashingCycleResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(WashingCycle) : WashingCycleResource
+      }
+      class AssignWashingCycleCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(int, AssignWashingCycleResource) : AssignWashingCycleCommand
+      }
+      class AssignResourceCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(int, AssignResourceResource) : AssignResourceCommand
+      }
+      class PrioritizeLaundryOrderCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(int, PrioritizeLaundryOrderResource) : PrioritizeLaundryOrderCommand
+      }
+      class ActionResultFromLaundryOrderResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryOrderResult(Result<LaundryOrder, LaundryOrderError>, ControllerBase) : ActionResult
+      }
+      class ActionResultFromLaundryResourceResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryResourceResult(Result<LaundryResource, LaundryResourceError>, ControllerBase) : ActionResult
       }
     }
   }
 
   package "Domain.Model" {
     package "ValueObjects" {
-      class MachineId <<value-object>> {
+      class LaundryOrderId <<value-object>> {
         +int Value
+        +LaundryOrderId(int)
       }
-      enum OperationStage <<value-object>> {
+      class LaundryResourceId <<value-object>> {
+        +int Value
+        +LaundryResourceId(int)
+      }
+      class WashingCycleId <<value-object>> {
+        +int Value
+        +WashingCycleId(int)
+      }
+      class LaundryId <<value-object>> {
+        +int Value
+        +LaundryId(int)
+      }
+      enum EProcessingStage <<value-object>> {
+        Reception
+        Classification
         Washing
-        Drying
-        Folding
+        DryingIroning
+        Packaging
         Ready
+      }
+      enum EPriority <<value-object>> {
+        Normal
+        Vip
+      }
+      enum EResourceStatus <<value-object>> {
+        Available
+        Busy
+        Maintenance
       }
     }
 
     package "Commands" {
-      class StartLaundryBatchCommand <<command>> {
-        +MachineId MachineId
+      class ReceiveLaundryOrderCommand <<command>> {
         +int OrderId
+        +EPriority Priority
+      }
+      class ClassifyLaundryOrderCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+      }
+      class AssignWashingCycleCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +WashingCycleId WashingCycleId
+      }
+      class AssignResourceCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +LaundryResourceId ResourceId
+      }
+      class AdvanceStageCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+      }
+      class PrioritizeLaundryOrderCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +EPriority Priority
+      }
+      class ReleaseResourceCommand <<command>> {
+        +LaundryResourceId ResourceId
+      }
+      class SyncResourceStatusCommand <<command>> {
+        +LaundryResourceId ResourceId
+        +EResourceStatus Status
       }
     }
 
     package "Queries" {
-      class GetLaundryBatchByIdQuery <<query>> {
-        +int Id
+      class GetLaundryOrderByIdQuery <<query>> {
+        +LaundryOrderId LaundryOrderId
+      }
+      class GetAllLaundryOrdersQuery <<query>> {
+      }
+      class GetAllLaundryResourcesByLaundryIdQuery <<query>> {
+        +LaundryId LaundryId
+      }
+      class GetAllWashingCyclesQuery <<query>> {
       }
     }
 
     package "Aggregates" {
-      class LaundryBatch <<aggregate>> {
-        +int Id
-        +MachineId MachineId
+      class LaundryOrder <<aggregate>> {
+        +LaundryOrderId Id
         +int OrderId
-        +OperationStage Stage
-        +LaundryBatch(StartLaundryBatchCommand)
+        +EProcessingStage CurrentStage
+        +EPriority Priority
+        +int? WashingCycleId
+        +int? ResourceId
+        +DateTimeOffset? ExpectedCompletion
+        +bool IsReady
+        +LaundryOrder(LaundryOrderId, int, EProcessingStage, EPriority, int?, int?, DateTimeOffset?, bool)
+        +LaundryOrder(int, EPriority)
+        +LaundryOrder(ReceiveLaundryOrderCommand)
+        +Classify() : void
+        +AssignWashingCycle(WashingCycleId) : void
+        +AssignResource(LaundryResourceId) : void
         +AdvanceStage() : void
+        +Prioritize(EPriority) : void
+      }
+
+      class LaundryResource <<aggregate>> {
+        +LaundryResourceId Id
+        +LaundryId LaundryId
+        +string Name
+        +EResourceStatus Status
+        +int Capacity
+        +bool IsAvailable
+        +LaundryResource(LaundryResourceId, LaundryId, string, EResourceStatus, int)
+        +LaundryResource(LaundryId, string, int)
+        +LaundryResource(int, string, int)
+        +Assign() : void
+        +Release() : void
+        +ApplyMonitoredStatus(EResourceStatus) : void
+      }
+    }
+
+    package "Entities" {
+      class WashingCycle <<entity>> {
+        +WashingCycleId Id
+        +string Name
+        +int DurationMinutes
+        +string CompatibleType
+        +IsCompatible(string) : bool
       }
     }
   }
 
   package "Application" {
     package "Errors" {
-      enum LaundryBatchError <<error>> {
-        MachineUnavailable
+      enum LaundryOrderError <<error>> {
+        LaundryOrderNotFound
+        OrderAlreadyReceived
+        OrderAlreadyReady
+        WashingCycleAndResourceRequired
+        WashingCycleNotFound
+        ResourceNotFound
         InvalidStageTransition
+        UnexpectedError
+      }
+      enum LaundryResourceError <<error>> {
+        ResourceNotFound
+        ResourceNotAvailable
+        ResourceNotBusy
+        InvalidResourceStatus
+        UnexpectedError
       }
     }
 
     package "Services" {
-      interface ILaundryBatchCommandService <<application-service>> {
-        +Handle(StartLaundryBatchCommand, CancellationToken) : Task<Result<LaundryBatch, LaundryBatchError>>
+      interface ILaundryOrderCommandService <<application-service>> {
+        +Handle(ReceiveLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(ClassifyLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignWashingCycleCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignResourceCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AdvanceStageCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(PrioritizeLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
       }
-      interface ILaundryBatchQueryService <<application-service>> {
-        +Handle(GetLaundryBatchByIdQuery, CancellationToken) : Task<LaundryBatch?>
+      interface ILaundryResourceCommandService <<application-service>> {
+        +Handle(ReleaseResourceCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+        +Handle(SyncResourceStatusCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+      }
+      interface ILaundryOperationsQueryService <<application-service>> {
+        +Handle(GetLaundryOrderByIdQuery, CancellationToken) : Task<LaundryOrder?>
+        +Handle(GetAllLaundryOrdersQuery, CancellationToken) : Task<IEnumerable<LaundryOrder>>
+        +Handle(GetAllLaundryResourcesByLaundryIdQuery, CancellationToken) : Task<IEnumerable<LaundryResource>>
+        +Handle(GetAllWashingCyclesQuery, CancellationToken) : Task<IEnumerable<WashingCycle>>
+      }
+    }
+
+    package "Outbound" {
+      interface IResourceMonitoringFacade <<port>> {
+        +GetResourceStatusAsync(LaundryResourceId, CancellationToken) : Task<EResourceStatus>
       }
     }
 
     package "Internal.CommandServices" {
-      class LaundryBatchCommandService <<service>> {
-        +Handle(StartLaundryBatchCommand, CancellationToken) : Task<Result<LaundryBatch, LaundryBatchError>>
+      class LaundryOrderCommandService <<service>> {
+        +Handle(ReceiveLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(ClassifyLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignWashingCycleCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignResourceCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AdvanceStageCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(PrioritizeLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+      }
+      class LaundryResourceCommandService <<service>> {
+        +Handle(ReleaseResourceCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+        +Handle(SyncResourceStatusCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
       }
     }
 
     package "Internal.QueryServices" {
-      class LaundryBatchQueryService <<service>> {
-        +Handle(GetLaundryBatchByIdQuery, CancellationToken) : Task<LaundryBatch?>
+      class LaundryOperationsQueryService <<service>> {
+        +Handle(GetLaundryOrderByIdQuery, CancellationToken) : Task<LaundryOrder?>
+        +Handle(GetAllLaundryOrdersQuery, CancellationToken) : Task<IEnumerable<LaundryOrder>>
+        +Handle(GetAllLaundryResourcesByLaundryIdQuery, CancellationToken) : Task<IEnumerable<LaundryResource>>
+        +Handle(GetAllWashingCyclesQuery, CancellationToken) : Task<IEnumerable<WashingCycle>>
       }
     }
   }
 
   package "Infrastructure.Persistence.EFC.Repositories" {
-    class LaundryBatchRepository <<repository>> {
-      +FindByMachineIdAsync(MachineId, CancellationToken) : Task<IEnumerable<LaundryBatch>>
+    class LaundryOrderRepository <<repository>> {
+      +FindByOrderIdAsync(int, CancellationToken) : Task<LaundryOrder?>
+    }
+    class LaundryResourceRepository <<repository>> {
+      +FindByLaundryIdAsync(LaundryId, CancellationToken) : Task<IEnumerable<LaundryResource>>
+    }
+    class WashingCycleRepository <<repository>> {
+    }
+  }
+
+  package "Infrastructure.ExternalServices.IoT" {
+    class IotGatewayClient <<external-client>> {
+      +GetTelemetryAsync(int, CancellationToken) : Task<SensorTelemetryPayload>
+    }
+    class SensorTelemetryPayload <<payload>> {
+      +int ResourceId
+      +string State
+      +DateTimeOffset ReadAt
+    }
+    class ResourceMonitoringACL <<acl>> {
+      +GetResourceStatusAsync(LaundryResourceId, CancellationToken) : Task<EResourceStatus>
+      -Translate(SensorTelemetryPayload) : EResourceStatus
     }
   }
 }
@@ -712,7 +921,9 @@ package "Shared" {
       +OnModelCreating(ModelBuilder) : void
       --
       +orders
-      +laundry_batches
+      +laundry_orders
+      +laundry_resources
+      +washing_cycles
       +customers
       +pickups_deliveries
       +tracking_notifications
@@ -738,8 +949,11 @@ package "Shared" {
 ' Controllers to Application Services
 OrdersController --> IOrderCommandService : uses
 OrdersController --> IOrderQueryService : uses
-LaundryBatchesController --> ILaundryBatchCommandService : uses
-LaundryBatchesController --> ILaundryBatchQueryService : uses
+LaundryOrdersController --> ILaundryOrderCommandService : uses
+LaundryOrdersController --> ILaundryOperationsQueryService : uses
+LaundryResourcesController --> ILaundryResourceCommandService : uses
+LaundryResourcesController --> ILaundryOperationsQueryService : uses
+WashingCyclesController --> ILaundryOperationsQueryService : uses
 CustomersController --> ICustomerCommandService : uses
 CustomersController --> ICustomerQueryService : uses
 PickupsDeliveriesController --> IPickupDeliveryCommandService : uses
@@ -752,8 +966,9 @@ PaymentsController --> IPaymentQueryService : uses
 ' Service Implementations
 OrderCommandService ..|> IOrderCommandService
 OrderQueryService ..|> IOrderQueryService
-LaundryBatchCommandService ..|> ILaundryBatchCommandService
-LaundryBatchQueryService ..|> ILaundryBatchQueryService
+LaundryOrderCommandService ..|> ILaundryOrderCommandService
+LaundryResourceCommandService ..|> ILaundryResourceCommandService
+LaundryOperationsQueryService ..|> ILaundryOperationsQueryService
 CustomerCommandService ..|> ICustomerCommandService
 CustomerQueryService ..|> ICustomerQueryService
 PickupDeliveryCommandService ..|> IPickupDeliveryCommandService
@@ -763,11 +978,23 @@ TrackingNotificationQueryService ..|> ITrackingNotificationQueryService
 PaymentCommandService ..|> IPaymentCommandService
 PaymentQueryService ..|> IPaymentQueryService
 
+' Laundry Operations: anticorruption layer (IoT monitoring)
+LaundryResourceCommandService --> IResourceMonitoringFacade : uses
+ResourceMonitoringACL ..|> IResourceMonitoringFacade
+ResourceMonitoringACL --> IotGatewayClient : uses
+ResourceMonitoringACL ..> SensorTelemetryPayload : translates
+IotGatewayClient --> SensorTelemetryPayload : returns
+
 ' Aggregates Value Objects ownership
 Order --> CustomerIdVO : owns
 Order --> OrderStatus : owns
-LaundryBatch --> MachineId : owns
-LaundryBatch --> OperationStage : owns
+LaundryOrder --> LaundryOrderId : owns
+LaundryOrder --> EProcessingStage : owns
+LaundryOrder --> EPriority : owns
+LaundryResource --> LaundryResourceId : owns
+LaundryResource --> LaundryId : references
+LaundryResource --> EResourceStatus : owns
+WashingCycle --> WashingCycleId : owns
 Customer --> EmailAddress : owns
 Customer --> PhoneNumber : owns
 PickupDelivery --> DeliveryAddress : owns
@@ -779,7 +1006,9 @@ PaymentTransaction --> PaymentStatus : owns
 
 ' Repositories & Base Infrastructure
 OrderRepository --|> BaseRepository
-LaundryBatchRepository --|> BaseRepository
+LaundryOrderRepository --|> BaseRepository
+LaundryResourceRepository --|> BaseRepository
+WashingCycleRepository --|> BaseRepository
 CustomerRepository --|> BaseRepository
 PickupDeliveryRepository --|> BaseRepository
 TrackingNotificationRepository --|> BaseRepository
@@ -789,7 +1018,9 @@ UnitOfWork ..|> IUnitOfWork
 
 ' DbContext Entity Mappings
 AppDbContext --> Order : maps
-AppDbContext --> LaundryBatch : maps
+AppDbContext --> LaundryOrder : maps
+AppDbContext --> LaundryResource : maps
+AppDbContext --> WashingCycle : maps
 AppDbContext --> Customer : maps
 AppDbContext --> PickupDelivery : maps
 AppDbContext --> TrackingNotification : maps

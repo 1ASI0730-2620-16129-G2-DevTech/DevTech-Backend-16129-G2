@@ -1,4 +1,6 @@
-﻿namespace DevTech.LaundryOperations.Domain.Model.Queries;
+﻿using DevTech.LaundryOperations.Domain.Model.ValueObjects;
+
+namespace DevTech.LaundryOperations.Domain.Model.Queries;
 
 public record GetAllLaundryResourcesByLaundryIdQuery(LaundryId LaundryId)
 {
