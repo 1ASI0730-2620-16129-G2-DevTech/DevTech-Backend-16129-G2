@@ -13,7 +13,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Commands;
 /// </param>
 public record SyncResourceStatusCommand(LaundryResourceId ResourceId, EResourceStatus Status)
 {
-    public SyncResourceStatusCommand(int resourceId, EResourceStatus status)
+    public SyncResourceStatusCommand(Guid resourceId, EResourceStatus status)
         : this(new LaundryResourceId(resourceId), status)
     {
     }

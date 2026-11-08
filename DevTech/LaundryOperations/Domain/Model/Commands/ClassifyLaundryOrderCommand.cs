@@ -10,7 +10,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Commands;
 /// </param>
 public record ClassifyLaundryOrderCommand(LaundryOrderId LaundryOrderId)
 {
-    public ClassifyLaundryOrderCommand(int laundryOrderId)
+    public ClassifyLaundryOrderCommand(Guid laundryOrderId)
         : this(new LaundryOrderId(laundryOrderId))
     {
     }

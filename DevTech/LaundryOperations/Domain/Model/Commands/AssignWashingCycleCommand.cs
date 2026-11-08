@@ -13,7 +13,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Commands;
 /// </param>
 public record AssignWashingCycleCommand(LaundryOrderId LaundryOrderId, WashingCycleId WashingCycleId)
 {
-    public AssignWashingCycleCommand(int laundryOrderId, int washingCycleId)
+    public AssignWashingCycleCommand(Guid laundryOrderId, Guid washingCycleId)
         : this(new LaundryOrderId(laundryOrderId), new WashingCycleId(washingCycleId))
     {
     }

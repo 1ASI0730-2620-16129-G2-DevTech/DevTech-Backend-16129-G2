@@ -10,7 +10,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Commands;
 /// </param>
 public record ReleaseResourceCommand(LaundryResourceId ResourceId)
 {
-    public ReleaseResourceCommand(int resourceId)
+    public ReleaseResourceCommand(Guid resourceId)
         : this(new LaundryResourceId(resourceId))
     {
     }

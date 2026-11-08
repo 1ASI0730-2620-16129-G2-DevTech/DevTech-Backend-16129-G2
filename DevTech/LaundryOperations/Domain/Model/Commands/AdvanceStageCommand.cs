@@ -10,7 +10,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Commands;
 /// </param>
 public record AdvanceStageCommand(LaundryOrderId LaundryOrderId)
 {
-    public AdvanceStageCommand(int laundryOrderId)
+    public AdvanceStageCommand(Guid laundryOrderId)
         : this(new LaundryOrderId(laundryOrderId))
     {
     }

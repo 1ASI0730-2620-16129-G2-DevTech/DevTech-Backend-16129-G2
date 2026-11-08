@@ -4,7 +4,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Queries;
 
 public record GetLaundryOrderByIdQuery(LaundryOrderId LaundryOrderId)
 {
-    public GetLaundryOrderByIdQuery(int laundryOrderId) : this(new LaundryOrderId(laundryOrderId))
+    public GetLaundryOrderByIdQuery(Guid laundryOrderId) : this(new LaundryOrderId(laundryOrderId))
     {
     }
 }

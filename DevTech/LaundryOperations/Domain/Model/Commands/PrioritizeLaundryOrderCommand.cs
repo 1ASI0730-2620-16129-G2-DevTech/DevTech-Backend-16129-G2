@@ -13,7 +13,7 @@ namespace DevTech.LaundryOperations.Domain.Model.Commands;
 /// </param>
 public record PrioritizeLaundryOrderCommand(LaundryOrderId LaundryOrderId, EPriority Priority)
 {
-    public PrioritizeLaundryOrderCommand(int laundryOrderId, EPriority priority)
+    public PrioritizeLaundryOrderCommand(Guid laundryOrderId, EPriority priority)
         : this(new LaundryOrderId(laundryOrderId), priority)
     {
     }

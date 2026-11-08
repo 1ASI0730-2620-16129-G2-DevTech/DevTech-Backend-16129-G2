@@ -50,7 +50,7 @@ public partial class LaundryResource : AggregateRoot
         Capacity = capacity;
     }
 
-    public LaundryResource(int laundryId, string name, int capacity)
+    public LaundryResource(Guid laundryId, string name, int capacity)
         : this(new LaundryId(laundryId), name, capacity)
     {
     }

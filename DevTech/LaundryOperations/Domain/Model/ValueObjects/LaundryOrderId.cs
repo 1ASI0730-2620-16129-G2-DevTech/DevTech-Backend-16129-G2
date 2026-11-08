@@ -6,11 +6,11 @@ namespace DevTech.LaundryOperations.Domain.Model.ValueObjects;
 ///     Represents the strongly-typed identifier for a Laundry Order.
 /// </summary>
 /// <param name="Value">The underlying identifier value</param>
-public readonly record struct LaundryOrderId(int Value) : IEntityId<int>
+public readonly record struct LaundryOrderId(Guid Value) : IEntityId<Guid>
 {
-    public static implicit operator int(LaundryOrderId id) => id.Value;
+    public static implicit operator Guid(LaundryOrderId id) => id.Value;
     
-    public static implicit operator LaundryOrderId(int value) => new(value);
+    public static implicit operator LaundryOrderId(Guid value) => new(value);
     
     public override string ToString() => Value.ToString();
 }
