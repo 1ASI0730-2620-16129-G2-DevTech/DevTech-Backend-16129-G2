@@ -1,6 +1,6 @@
-using DomainErrorModel = Acme.Center.Platform.Shared.Domain.Model.Errors.Error;
+using DomainErrorModel = DevTech.Shared.Domain.Model.Errors.Error;
 
-namespace Acme.Center.Platform.Shared.Application.Model;
+namespace DevTech.Shared.Application.Model;
 
 /// <summary>
 ///     Generic Result class for Command Handlers in the Application Layer.
