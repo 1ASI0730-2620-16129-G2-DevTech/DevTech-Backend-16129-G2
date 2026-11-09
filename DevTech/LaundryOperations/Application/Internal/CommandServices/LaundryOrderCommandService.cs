@@ -2,7 +2,8 @@
 using DevTech.LaundryOperations.Domain.Model.Aggregates;
 using DevTech.LaundryOperations.Domain.Model.Commands;
 using DevTech.LaundryOperations.Domain.Model.Errors;
-using DevTech.LaundryOperations.Repositories;
+using DevTech.LaundryOperations.Domain.Repositories;
+using DevTech.LaundryOperations.Domain.Repositories;
 using DevTech.Shared.Application.Model;
 using DevTech.Shared.Domain.Repositories;
 

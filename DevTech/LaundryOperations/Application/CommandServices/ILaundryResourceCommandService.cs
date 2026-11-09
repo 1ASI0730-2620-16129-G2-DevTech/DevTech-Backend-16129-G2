@@ -4,6 +4,9 @@ using DevTech.Shared.Application.Model;
 
 namespace DevTech.LaundryOperations.Application.CommandServices;
 
+/// <summary>
+/// Represents the laundry resource command service.
+/// </summary>
 public interface ILaundryResourceCommandService
 {
     Task<Result<LaundryResource>> Handle(

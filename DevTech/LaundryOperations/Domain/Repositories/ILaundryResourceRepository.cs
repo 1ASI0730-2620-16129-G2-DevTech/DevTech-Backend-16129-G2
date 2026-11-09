@@ -1,17 +1,17 @@
-﻿using DevTech.LaundryOperations.Domain.Model.Aggregates;
+using DevTech.LaundryOperations.Domain.Model.Aggregates;
 using DevTech.LaundryOperations.Domain.Model.ValueObjects;
 using DevTech.Shared.Domain.Repositories;
 
-namespace DevTech.LaundryOperations.Repositories;
+namespace DevTech.LaundryOperations.Domain.Repositories;
 
 /// <summary>
 ///     Represents the Laundry Resource repository in the application.
 /// </summary>
 /// <remarks>
-///     Extends <see cref="IBaseRepository{TEntity}" /> with queries specific to the
-///     <see cref="LaundryResource" /> aggregate.
+///     Extends <see cref="IBaseRepository{TEntity,TKey}" /> with queries specific to the
+///     <see cref="LaundryResource" /> aggregate, using <see cref="LaundryResourceId" /> as its key.
 /// </remarks>
-public interface ILaundryResourceRepository : IBaseRepository<LaundryResource>
+public interface ILaundryResourceRepository : IBaseRepository<LaundryResource, LaundryResourceId>
 {
     /// <summary>
     ///     Finds all the laundry resources that belong to the given laundry.

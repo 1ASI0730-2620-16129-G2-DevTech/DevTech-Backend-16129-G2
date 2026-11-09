@@ -90,6 +90,30 @@ public partial class LaundryResource : AggregateRoot
     ///     Gets the capacity of the laundry resource.
     /// </summary>
     public int Capacity { get; private set; }
+    
+    /// <summary>
+    /// Releases the resource, making it available again.
+    /// </summary>
+    public bool Release()
+    {
+        if (Status != EResourceStatus.BUSY)
+            return false;
+
+        Status = EResourceStatus.AVAIABLE;
+        return true;
+    }
+
+    /// <summary>
+    /// Synchronizes the resource status with the monitored status.
+    /// </summary>
+    public bool SynchronizeStatus(EResourceStatus status)
+    {
+        if (!Enum.IsDefined(status))
+            return false;
+
+        Status = status;
+        return true;
+    }
 
     /// <summary>
     ///     Gets a value indicating whether the laundry resource can be assigned to a laundry order.
