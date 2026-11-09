@@ -5,6 +5,7 @@ using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuratio
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
+using DevTech.SubscriptionPayment.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
@@ -46,6 +47,9 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
 
         // IAM Context
         //builder.ApplyIamConfiguration();
+
+        // Subscription & Payment Context
+        builder.ApplySubscriptionPaymentConfiguration();
 
         // General Naming Convention for the database objects
         builder.UseSnakeCaseNamingConvention();
