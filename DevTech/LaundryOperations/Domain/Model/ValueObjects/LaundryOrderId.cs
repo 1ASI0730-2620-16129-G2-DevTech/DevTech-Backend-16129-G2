@@ -1,4 +1,4 @@
-﻿using Acme.Center.Platform.Shared.Domain.Model.ValueObjects;
+using DevTech.Shared.Domain.Model.ValueObjects;
 
 namespace DevTech.LaundryOperations.Domain.Model.ValueObjects;
 

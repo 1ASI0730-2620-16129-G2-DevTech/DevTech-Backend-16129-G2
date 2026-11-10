@@ -1,4 +1,4 @@
-namespace Acme.Center.Platform.Shared.Domain.Model.ValueObjects;
+namespace DevTech.Shared.Domain.Model.ValueObjects;
 
 /// <summary>
 ///     Represents a strongly-typed entity identifier contract.

@@ -26,5 +26,5 @@ public interface ILaundryOrderRepository : IBaseRepository<LaundryOrder, Laundry
     ///     A task that resolves to the matching <see cref="LaundryOrder" />,
     ///     or <c>null</c> if no laundry order is found.
     /// </returns>
-    Task<LaundryOrder?> FindByOrderIdAsync(int orderId, CancellationToken cancellationToken);
+    Task<LaundryOrder?> FindByOrderIdAsync(Guid orderId, CancellationToken cancellationToken);
 }

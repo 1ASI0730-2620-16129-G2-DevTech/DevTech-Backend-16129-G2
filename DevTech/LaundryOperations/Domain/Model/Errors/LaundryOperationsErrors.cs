@@ -1,4 +1,4 @@
-﻿using DevTech.Shared.Domain.Model.Errors;
+using DevTech.Shared.Domain.Model.Errors;
 
 namespace DevTech.LaundryOperations.Domain.Model.Errors;
 
@@ -44,7 +44,7 @@ public static class LaundryOperationsErrors
         Error.Validation("LaundryOperations.InvalidResourceStatus",
             "The monitored status received for the laundry resource is not valid.");
 
-    public static Error OrderAlreadyReceivedWithOrderId(int orderId) =>
+    public static Error OrderAlreadyReceivedWithOrderId(Guid orderId) =>
         Error.Conflict("LaundryOperations.OrderAlreadyReceived",
             $"A laundry order already exists for the order with id '{orderId}'.");
 }

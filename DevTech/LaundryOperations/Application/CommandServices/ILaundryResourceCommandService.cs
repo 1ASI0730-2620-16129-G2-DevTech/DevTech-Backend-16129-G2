@@ -1,4 +1,4 @@
-﻿using DevTech.LaundryOperations.Domain.Model.Aggregates;
+using DevTech.LaundryOperations.Domain.Model.Aggregates;
 using DevTech.LaundryOperations.Domain.Model.Commands;
 using DevTech.Shared.Application.Model;
 

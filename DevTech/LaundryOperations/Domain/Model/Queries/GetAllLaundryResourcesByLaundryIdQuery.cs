@@ -1,4 +1,4 @@
-﻿using DevTech.LaundryOperations.Domain.Model.ValueObjects;
+using DevTech.LaundryOperations.Domain.Model.ValueObjects;
 
 namespace DevTech.LaundryOperations.Domain.Model.Queries;
 

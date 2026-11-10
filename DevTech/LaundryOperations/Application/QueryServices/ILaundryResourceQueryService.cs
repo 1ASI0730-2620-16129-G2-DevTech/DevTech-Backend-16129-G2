@@ -1,4 +1,4 @@
-﻿using DevTech.LaundryOperations.Domain.Model.Aggregates;
+using DevTech.LaundryOperations.Domain.Model.Aggregates;
 using DevTech.LaundryOperations.Domain.Model.Queries;
 
 namespace DevTech.LaundryOperations.Application.QueryServices;

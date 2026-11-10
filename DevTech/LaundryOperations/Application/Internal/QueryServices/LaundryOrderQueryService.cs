@@ -1,7 +1,6 @@
-﻿using DevTech.LaundryOperations.Application.QueryServices;
+using DevTech.LaundryOperations.Application.QueryServices;
 using DevTech.LaundryOperations.Domain.Model.Aggregates;
 using DevTech.LaundryOperations.Domain.Model.Queries;
-using DevTech.LaundryOperations.Domain.Repositories;
 using DevTech.LaundryOperations.Domain.Repositories;
 
 namespace DevTech.LaundryOperations.Application.Internal.QueryServices;

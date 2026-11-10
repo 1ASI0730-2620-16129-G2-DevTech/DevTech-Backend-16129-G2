@@ -1,8 +1,8 @@
-﻿namespace DevTech.LaundryOperations.Domain.Model.ValueObjects;
+namespace DevTech.LaundryOperations.Domain.Model.ValueObjects;
 
 public enum EResourceStatus
 {
-    AVAIABLE,
+    AVAILABLE,
     BUSY,
     MAINTENANCE
 }

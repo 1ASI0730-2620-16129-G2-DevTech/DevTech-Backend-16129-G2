@@ -1,4 +1,4 @@
-﻿namespace DevTech.LaundryOperations.Domain.Model.ValueObjects;
+namespace DevTech.LaundryOperations.Domain.Model.ValueObjects;
 
 /// <summary>
 ///     Represents the processing stage of a job.

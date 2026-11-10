@@ -1,122 +1,64 @@
-﻿using DevTech.LaundryOperations.Domain.Model.ValueObjects;
+using DevTech.LaundryOperations.Domain.Model.ValueObjects;
+using DevTech.LaundryOperations.Domain.Model.Events;
 using DevTech.Shared.Domain.Model.Aggregates.Internal;
 
 namespace DevTech.LaundryOperations.Domain.Model.Aggregates;
 
-/// <summary>
-///     Represents the LaundryResource aggregate root within the Laundry Operations Bounded Context.
-/// </summary>
-/// <remarks>
-///     This class encapsulates the core data and behavior of a laundry resource (e.g. a washing machine
-///     or a dryer), acting as an aggregate root to ensure consistency of its state.
-/// </remarks>
-public partial class LaundryResource : AggregateRoot
+public class LaundryResource : AggregateRoot
 {
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="LaundryResource" /> aggregate with its full state.
-    /// </summary>
-    /// <param name="id">The unique identifier of the laundry resource.</param>
-    /// <param name="laundryId">The unique identifier of the laundry that owns this resource.</param>
-    /// <param name="name">The name of the laundry resource.</param>
-    /// <param name="status">The current status of the laundry resource.</param>
-    /// <param name="capacity">The capacity of the laundry resource.</param>
-    public LaundryResource(LaundryResourceId id, LaundryId laundryId, string name, EResourceStatus status,
-        int capacity) : this()
+    private LaundryResource() { }
+    public LaundryResource(LaundryId laundryId, string name, int capacity)
     {
+        if (laundryId.Value == Guid.Empty) throw new ArgumentException("Laundry id is required.");
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
-
-        Id = id;
+        Id = new(Guid.NewGuid());
         LaundryId = laundryId;
-        Name = name;
-        Status = status;
+        Name = name.Trim();
         Capacity = capacity;
     }
-
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="LaundryResource" /> aggregate.
-    ///     A new resource starts as available.
-    /// </summary>
-    /// <param name="laundryId">The unique identifier of the laundry that owns this resource.</param>
-    /// <param name="name">The name of the laundry resource.</param>
-    /// <param name="capacity">The capacity of the laundry resource.</param>
-    public LaundryResource(LaundryId laundryId, string name, int capacity) : this()
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
-
-        LaundryId = laundryId;
-        Name = name;
-        Capacity = capacity;
-    }
-
-    public LaundryResource(Guid laundryId, string name, int capacity)
-        : this(new LaundryId(laundryId), name, capacity)
-    {
-    }
-
-    /// <summary>
-    ///     Parameterless constructor used by the persistence mechanism and by the other constructors.
-    ///     Move it to your other partial file if you already have one there.
-    /// </summary>
-    protected LaundryResource()
-    {
-        Name = string.Empty;
-        Status = EResourceStatus.AVAIABLE;
-    }
-
-    /// <summary>
-    ///     Gets the unique identifier of the laundry resource.
-    /// </summary>
-    public LaundryResourceId Id { get; }
-
-    /// <summary>
-    ///     Gets the identifier of the laundry that owns this resource
-    ///     (reference by id to the Customer &amp; Business Management context).
-    /// </summary>
+    public LaundryResourceId Id { get; private set; }
     public LaundryId LaundryId { get; private set; }
-
-    /// <summary>
-    ///     Gets the name of the laundry resource.
-    /// </summary>
-    public string Name { get; private set; }
-
-    /// <summary>
-    ///     Gets the current status of the laundry resource.
-    /// </summary>
-    public EResourceStatus Status { get; private set; }
-
-    /// <summary>
-    ///     Gets the capacity of the laundry resource.
-    /// </summary>
+    public string Name { get; private set; } = "";
+    public EResourceStatus Status { get; private set; } = EResourceStatus.AVAILABLE;
     public int Capacity { get; private set; }
-    
-    /// <summary>
-    /// Releases the resource, making it available again.
-    /// </summary>
+    public Guid? AssignedOrderId { get; private set; }
+    public Guid Version { get; private set; } = Guid.NewGuid();
+    public void RefreshVersion() => Version = Guid.NewGuid();
+    public bool IsAvailable => Status == EResourceStatus.AVAILABLE && AssignedOrderId is null;
+
+    public bool Assign(LaundryOrderId orderId)
+    {
+        if (!IsAvailable || orderId.Value == Guid.Empty) return false;
+        AssignedOrderId = orderId.Value;
+        Status = EResourceStatus.BUSY;
+        return true;
+    }
+    // Manual release must not detach a resource from an unfinished order.
     public bool Release()
     {
-        if (Status != EResourceStatus.BUSY)
-            return false;
-
-        Status = EResourceStatus.AVAIABLE;
+        if (Status != EResourceStatus.BUSY || AssignedOrderId is not null) return false;
+        Status = EResourceStatus.AVAILABLE;
+        AddDomainEvent(new ResourceReleased(Id.Value));
         return true;
     }
-
-    /// <summary>
-    /// Synchronizes the resource status with the monitored status.
-    /// </summary>
+    public bool CompleteAssignment(LaundryOrderId orderId)
+    {
+        if (AssignedOrderId != orderId.Value) return false;
+        AssignedOrderId = null;
+        // Finishing an order never clears a maintenance condition.
+        if (Status == EResourceStatus.BUSY) Status = EResourceStatus.AVAILABLE;
+        AddDomainEvent(new ResourceReleased(Id.Value));
+        return true;
+    }
     public bool SynchronizeStatus(EResourceStatus status)
     {
-        if (!Enum.IsDefined(status))
+        if (!Enum.IsDefined(status)) return false;
+        if (status == EResourceStatus.AVAILABLE && (Status == EResourceStatus.BUSY || AssignedOrderId is not null))
             return false;
-
         Status = status;
+        AddDomainEvent(new ResourceStatusChanged(Id.Value, status));
         return true;
     }
-
-    /// <summary>
-    ///     Gets a value indicating whether the laundry resource can be assigned to a laundry order.
-    /// </summary>
-    public bool IsAvailable => Status == EResourceStatus.AVAIABLE;
 }
+

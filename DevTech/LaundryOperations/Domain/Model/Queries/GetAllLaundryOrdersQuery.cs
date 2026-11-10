@@ -1,3 +1,3 @@
-﻿namespace DevTech.LaundryOperations.Domain.Model.Queries;
+namespace DevTech.LaundryOperations.Domain.Model.Queries;
 
 public record GetAllLaundryOrdersQuery;
