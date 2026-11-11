@@ -1,10 +1,10 @@
-using DevTech.LaundryOperations.Domain.Model.ValueObjects;
+﻿using DevTech.LaundryOperations.Domain.Model.ValueObjects;
 using DevTech.LaundryOperations.Domain.Model.Events;
 using DevTech.Shared.Domain.Model.Aggregates.Internal;
 
 namespace DevTech.LaundryOperations.Domain.Model.Aggregates;
 
-public class LaundryResource : AggregateRoot
+public partial class LaundryResource : AggregateRoot
 {
     private LaundryResource() { }
     public LaundryResource(LaundryId laundryId, string name, int capacity)

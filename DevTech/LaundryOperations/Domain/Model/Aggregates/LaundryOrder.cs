@@ -1,4 +1,4 @@
-using DevTech.LaundryOperations.Domain.Model.Commands;
+﻿using DevTech.LaundryOperations.Domain.Model.Commands;
 using DevTech.LaundryOperations.Domain.Model.ValueObjects;
 using DevTech.LaundryOperations.Domain.Model.Errors;
 using DevTech.LaundryOperations.Domain.Model.Events;
@@ -7,7 +7,7 @@ using DevTech.Shared.Domain.Model.Errors;
 
 namespace DevTech.LaundryOperations.Domain.Model.Aggregates;
 
-public class LaundryOrder : AggregateRoot
+public partial class LaundryOrder : AggregateRoot
 {
     private LaundryOrder() { }
     public LaundryOrder(ReceiveLaundryOrderCommand command)
