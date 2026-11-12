@@ -22,9 +22,6 @@
 
     <ItemGroup>
       <Folder Include="CustomerManagement\Application\" />
-      <Folder Include="CustomerManagement\Domain\Model\Entities\" />
-      <Folder Include="CustomerManagement\Domain\Model\Errors\" />
-      <Folder Include="CustomerManagement\Domain\Model\Events\" />
       <Folder Include="CustomerManagement\Domain\Repositories\" />
       <Folder Include="CustomerManagement\Infrastructure\" />
       <Folder Include="CustomerManagement\Interfaces\" />
