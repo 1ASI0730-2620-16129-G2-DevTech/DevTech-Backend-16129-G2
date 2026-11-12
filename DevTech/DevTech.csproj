@@ -28,7 +28,6 @@
       <Folder Include="CustomerManagement\Domain\Model\Errors\" />
       <Folder Include="CustomerManagement\Domain\Model\Events\" />
       <Folder Include="CustomerManagement\Domain\Model\Queries\" />
-      <Folder Include="CustomerManagement\Domain\Model\ValueObjects\" />
       <Folder Include="CustomerManagement\Domain\Repositories\" />
       <Folder Include="CustomerManagement\Infrastructure\" />
       <Folder Include="CustomerManagement\Interfaces\" />
