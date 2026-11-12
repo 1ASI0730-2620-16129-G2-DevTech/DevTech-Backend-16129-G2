@@ -1,127 +1,228 @@
 ﻿@startuml
-' WashTrack Backend Platform - Consolidated Bounded Context Architecture
+' WashTrack Platform - Backend Class Diagram
+' RESTful API: C# / ASP.NET Core + Entity Framework Core (DDD, layered per bounded context)
+' Bounded Contexts: IAM, CustomerBusinessManagement, OrderManagement, LaundryOperations,
+'                   SubscriptionPayment, TrackingNotifications
+' Cross-context references are by identifier only (Guid), never by object.
 
 skinparam classAttributeIconSize 0
+hide empty members
 
-' ==============================================================================
-' BOUNDED CONTEXT: ORDER MANAGEMENT
-' ==============================================================================
-package "OrderManagement" {
-
-  package "Interfaces.REST" {
-    class OrdersController {
-      +CreateOrder(CreateOrderResource, CancellationToken) : Task<ActionResult>
-      +GetOrderById(int, CancellationToken) : Task<ActionResult>
-      +GetOrdersByCustomerId(string, CancellationToken) : Task<ActionResult>
-    }
-
-    package "Resources" {
-      class OrderResource <<resource>> {
-        +int Id
-        +string CustomerId
-        +decimal TotalAmount
-        +string Status
-      }
-      class CreateOrderResource <<resource>> {
-        +string CustomerId
-        +decimal TotalAmount
-      }
-    }
-
-    package "Transform" {
-      class OrderResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(Order) : OrderResource
-      }
-      class CreateOrderCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(CreateOrderResource) : CreateOrderCommand
-      }
-      class ActionResultFromCreateOrderResultAssembler <<assembler>> {
-        +ToActionResultFromCreateOrderResult(Result<Order, CreateOrderError>, ControllerBase, IStringLocalizer<SharedResource>, string) : ActionResult
-      }
-    }
-  }
-
-  package "Domain.Model" {
-    package "ValueObjects" {
-      class CustomerIdVO <<value-object>> {
-        +string Value
-      }
-      enum OrderStatus <<value-object>> {
-        Created
-        InLaundryProcess
-        ReadyForDelivery
-        Completed
-        Cancelled
-      }
-    }
-
-    package "Commands" {
-      class CreateOrderCommand <<command>> {
-        +CustomerIdVO CustomerId
-        +decimal TotalAmount
-      }
-    }
-
-    package "Queries" {
-      class GetOrderByIdQuery <<query>> {
-        +int Id
-      }
-    }
-
-    package "Aggregates" {
-      class Order <<aggregate>> {
-        +int Id
-        +CustomerIdVO CustomerId
-        +decimal TotalAmount
-        +OrderStatus Status
-        +Order(CreateOrderCommand)
-        +UpdateStatus(OrderStatus) : void
-      }
-    }
-  }
+package "Shared" {
 
   package "Application" {
-    package "Errors" {
-      enum CreateOrderError <<error>> {
-        InvalidCustomer
-        InvalidAmount
-        UnexpectedError
+
+    package "Model" {
+      abstract class "Result<TValue, TError>" as ResultT <<result>> {
+        +IsSuccess : bool
+        +IsFailure : bool
+        +Map<TNext>(Func<TValue, TNext>) : Result<TNext, TError>
+        +Fold<TResult>(Func<TValue, TResult>, Func<TError, TResult>) : TResult
+        +Match(Action<TValue>, Action<TError>) : void
       }
     }
 
-    package "Services" {
-      interface IOrderCommandService <<application-service>> {
-        +Handle(CreateOrderCommand, CancellationToken) : Task<Result<Order, CreateOrderError>>
-      }
-      interface IOrderQueryService <<application-service>> {
-        +Handle(GetOrderByIdQuery, CancellationToken) : Task<Order?>
-      }
-    }
-
-    package "Internal.CommandServices" {
-      class OrderCommandService <<service>> {
-        +Handle(CreateOrderCommand, CancellationToken) : Task<Result<Order, CreateOrderError>>
-      }
-    }
-
-    package "Internal.QueryServices" {
-      class OrderQueryService <<service>> {
-        +Handle(GetOrderByIdQuery, CancellationToken) : Task<Order?>
+    package "Internal.EventHandlers" {
+      interface IEventHandler<TEvent> <<event-handler>> {
+        +Handle(TEvent, CancellationToken) : Task
       }
     }
   }
 
-  package "Infrastructure.Persistence.EFC.Repositories" {
-    class OrderRepository <<repository>> {
-      +FindByCustomerIdAsync(CustomerIdVO, CancellationToken) : Task<IEnumerable<Order>>
+  package "Domain" {
+
+    package "Model" {
+
+      package "Aggregates" {
+        interface IAggregateRoot <<aggregate>> {
+          +DomainEvents : IReadOnlyCollection<IEvent>
+          +ClearDomainEvents() : void
+        }
+
+        package "Internal" {
+          abstract class AggregateRoot<TId> <<aggregate>> {
+            +TId Id
+            #AddDomainEvent(IEvent) : void
+          }
+        }
+      }
+
+      package "Entities" {
+        interface IAuditableEntity <<auditable>> {
+          +DateTimeOffset? CreatedAt
+          +DateTimeOffset? UpdatedAt
+        }
+      }
+
+      package "Errors" {
+        class Error <<error>> {
+          +string Code
+          +string Message
+        }
+      }
+
+      package "Events" {
+        interface IEvent <<event>> {
+          +Guid EventId
+          +DateTimeOffset OccurredAt
+        }
+      }
+
+      package "ValueObjects" {
+        interface IEntityId <<value-object>> {
+          +Guid Value
+        }
+      }
+    }
+
+    package "Repositories" {
+      interface IBaseRepository<TEntity> <<repository>> {
+        +AddAsync(TEntity, CancellationToken) : Task
+        +FindByIdAsync(IEntityId, CancellationToken) : Task<TEntity?>
+        +Update(TEntity) : void
+        +Remove(TEntity) : void
+        +ListAsync(CancellationToken) : Task<IEnumerable<TEntity>>
+      }
+
+      interface IUnitOfWork <<unit-of-work>> {
+        +CompleteAsync(CancellationToken) : Task
+      }
+    }
+  }
+
+  package "Infrastructure" {
+
+    package "Interfaces.AspNetCore" {
+      package "Configuration" {
+        class KebabCaseRouteNamingConvention <<convention>> {
+          +Apply(ControllerModel) : void
+        }
+
+        package "Extensions" {
+          class ServiceCollectionExtensions <<extension>> {
+            +{static} AddSharedInfrastructure(IServiceCollection) : IServiceCollection
+          }
+        }
+      }
+    }
+
+    package "Persistence.EntityFrameworkCore" {
+
+      package "Configuration" {
+        class AppDbContext <<db-context>> {
+          +OnConfiguring(DbContextOptionsBuilder) : void
+          +OnModelCreating(ModelBuilder) : void
+          --
+          +users, customers, laundries
+          +orders, garment_items
+          +laundry_orders, washing_cycles, laundry_resources
+          +subscription_plans, subscriptions, payments
+          +tracking, status_history, notifications
+          +value converters for entity ids / value objects
+        }
+
+        package "Extensions" {
+          class ModelBuilderExtensions <<extension>> {
+            +{static} UseSnakeCaseNamingConvention(ModelBuilder) : void
+          }
+        }
+
+        package "ValueConverters" {
+          class "EntityIdValueConverter<TId>" as EntityIdValueConverter <<value-converter>> {
+            +ConvertToProvider(TId) : Guid
+            +ConvertFromProvider(Guid) : TId
+          }
+        }
+      }
+
+      package "Interceptors" {
+        class AuditableEntityInterceptor <<interceptor>> {
+          +SavingChanges(DbContextEventData, InterceptionResult<int>) : InterceptionResult<int>
+          +SavingChangesAsync(DbContextEventData, InterceptionResult<int>, CancellationToken) : ValueTask<InterceptionResult<int>>
+        }
+
+        class DispatchDomainEventsInterceptor <<interceptor>> {
+          +SavedChangesAsync(SaveChangesCompletedEventData, int, CancellationToken) : ValueTask<int>
+        }
+      }
+
+      package "Repositories" {
+        class BaseRepository<TEntity> <<repository>> {
+          +AddAsync(TEntity, CancellationToken) : Task
+          +FindByIdAsync(IEntityId, CancellationToken) : Task<TEntity?>
+          +Update(TEntity) : void
+          +Remove(TEntity) : void
+          +ListAsync(CancellationToken) : Task<IEnumerable<TEntity>>
+        }
+
+        class UnitOfWork <<unit-of-work>> {
+          +CompleteAsync(CancellationToken) : Task
+        }
+      }
+    }
+  }
+
+  package "Interfaces.Rest" {
+    package "ProblemDetails" {
+      class ProblemDetailsFactory <<factory>> {
+        +Create(string, int, string) : ProblemDetails
+      }
+    }
+  }
+
+  package "Resources" {
+    package "Errors" {
+      class ErrorMessages <<resource-file>> {
+        +{static} ResourceManager
+        ' ErrorMessages.es.resx -> traducciones al español
+      }
+    }
+
+    class CommonMessages <<resource-file>> {
+      +{static} ResourceManager
     }
   }
 }
 
-' ==============================================================================
-' BOUNDED CONTEXT: LAUNDRY OPERATIONS
-' ==============================================================================
-package "LaundryOperations" {
+' Shared relationships
+AggregateRoot ..|> IAggregateRoot : implements
+AggregateRoot ..> IEvent : collects
+AggregateRoot ..> IEntityId : identified by
+
+BaseRepository ..|> IBaseRepository : implements
+UnitOfWork ..|> IUnitOfWork : implements
+BaseRepository --> AppDbContext : uses
+UnitOfWork --> AppDbContext : uses
+
+AppDbContext ..> AuditableEntityInterceptor : uses
+AppDbContext ..> DispatchDomainEventsInterceptor : uses
+AppDbContext ..> IAuditableEntity : timestamps
+AppDbContext ..> EntityIdValueConverter : maps ids
+AppDbContext ..> ModelBuilderExtensions : uses
+DispatchDomainEventsInterceptor ..> IEventHandler : dispatches to
+DispatchDomainEventsInterceptor ..> IAggregateRoot : reads events
+EntityIdValueConverter ..> IEntityId : converts
+
+ProblemDetailsFactory ..> Error : maps
+ProblemDetailsFactory ..> ErrorMessages : localizes
+ProblemDetailsFactory ..> CommonMessages : localizes
+
+note right of AppDbContext
+  EF Core mappings:
+  - snake_case tables / columns
+  - id value converters (Guid)
+  - one table per aggregate and child entity
+end note
+
+note right of AggregateRoot
+  Todos los aggregate roots extienden
+  AggregateRoot<TId> del Shared Kernel.
+end note
+
+' =====================================================================
+' IAM - Identity & Access
+' =====================================================================
+package "IAM" {
 
   package "Interfaces.REST" {
     class LaundryOrdersController {
@@ -207,6 +308,7 @@ package "LaundryOperations" {
   }
 
   package "Domain.Model" {
+
     package "ValueObjects" {
       class LaundryOrderId <<value-object>> {
         +int Value
@@ -335,7 +437,15 @@ package "LaundryOperations" {
     }
   }
 
+  package "Domain.Repositories" {
+    interface IUserRepository <<repository>> {
+      +FindByEmailAsync(EmailAddress, CancellationToken) : Task<User?>
+      +ExistsByEmailAsync(EmailAddress, CancellationToken) : Task<bool>
+    }
+  }
+
   package "Application" {
+
     package "Errors" {
       enum LaundryOrderError <<error>> {
         LaundryOrderNotFound
@@ -435,27 +545,126 @@ package "LaundryOperations" {
   }
 }
 
-' ==============================================================================
-' BOUNDED CONTEXT: CUSTOMER MANAGEMENT
-' ==============================================================================
-package "CustomerManagement" {
+' IAM relationships
+AuthenticationController --> IUserCommandService : uses
+AuthenticationController --> SignUpCommandFromResourceAssembler : uses
+AuthenticationController --> SignInCommandFromResourceAssembler : uses
+AuthenticationController --> ActionResultFromSignUpResultAssembler : uses
+AuthenticationController --> ActionResultFromSignInResultAssembler : uses
+AuthenticationController --> AuthenticatedUserResourceFromEntityAssembler : uses
+UsersController --> IUserQueryService : uses
+UsersController --> UserResourceFromEntityAssembler : uses
+
+UserCommandService ..|> IUserCommandService : implements
+UserQueryService ..|> IUserQueryService : implements
+UserCommandService --> IUserRepository : uses
+UserCommandService --> IUnitOfWork : uses
+UserCommandService --> IHashingService : uses
+UserCommandService --> ITokenService : uses
+UserCommandService ..> AuthenticatedUser : returns
+UserQueryService --> IUserRepository : uses
+
+IUserRepository --|> IBaseRepository : extends
+UserRepository ..|> IUserRepository : implements
+UserRepository --|> BaseRepository : extends
+HashingService ..|> IHashingService : implements
+TokenService ..|> ITokenService : implements
+
+User --|> AggregateRoot : extends
+User ..|> IAuditableEntity : implements
+User --> UserId : owns
+User --> EmailAddress : owns
+User --> PasswordHash : owns
+User --> UserRole : has
+User ..> UserRegistered : raises
+User ..> UserAuthenticated : raises
+UserId ..|> IEntityId
+UserRegistered ..|> IEvent
+UserAuthenticated ..|> IEvent
+SignUpCommand --> EmailAddress : contains
+SignUpCommand --> UserRole : contains
+SignInCommand --> EmailAddress : contains
+GetUserByIdQuery --> UserId : contains
+GetUserByEmailQuery --> EmailAddress : contains
+
+SignUpCommandFromResourceAssembler ..> SignUpResource : reads
+SignUpCommandFromResourceAssembler --> SignUpCommand : produces
+SignInCommandFromResourceAssembler ..> SignInResource : reads
+SignInCommandFromResourceAssembler --> SignInCommand : produces
+UserResourceFromEntityAssembler ..> User : reads
+UserResourceFromEntityAssembler --> UserResource : produces
+AuthenticatedUserResourceFromEntityAssembler ..> User : reads
+AuthenticatedUserResourceFromEntityAssembler --> AuthenticatedUserResource : produces
+ActionResultFromSignUpResultAssembler ..> ResultT : maps
+ActionResultFromSignUpResultAssembler ..> SignUpError : branches
+ActionResultFromSignUpResultAssembler ..> ProblemDetailsFactory : uses
+ActionResultFromSignInResultAssembler ..> ResultT : maps
+ActionResultFromSignInResultAssembler ..> SignInError : branches
+ActionResultFromSignInResultAssembler ..> ProblemDetailsFactory : uses
+
+AppDbContext --> User : maps
+
+' =====================================================================
+' Customer & Business Management
+' =====================================================================
+package "CustomerBusinessManagement" {
 
   package "Interfaces.REST" {
     class CustomersController {
-      +RegisterCustomer(RegisterCustomerResource, CancellationToken) : Task<ActionResult>
-      +GetCustomerById(int, CancellationToken) : Task<ActionResult>
+      +CreateCustomer(CreateCustomerResource, CancellationToken) : Task<ActionResult>
+      +GetCustomerById(Guid, CancellationToken) : Task<ActionResult>
+      +GetAllCustomers(CancellationToken) : Task<ActionResult>
+      +UpdateCustomerProfile(Guid, UpdateCustomerProfileResource, CancellationToken) : Task<ActionResult>
+    }
+
+    class LaundriesController {
+      +CreateLaundry(CreateLaundryResource, CancellationToken) : Task<ActionResult>
+      +GetLaundryById(Guid, CancellationToken) : Task<ActionResult>
+      +UpdateLaundry(Guid, UpdateLaundryResource, CancellationToken) : Task<ActionResult>
     }
 
     package "Resources" {
       class CustomerResource <<resource>> {
-        +int Id
+        +Guid Id
+        +Guid UserId
         +string FullName
-        +string Email
+        +string Phone
+        +string DocumentType
+        +string DocumentNumber
+        +string Address
+      }
+
+      class CreateCustomerResource <<resource>> {
+        +Guid UserId
+        +string FullName
+        +string Phone
+        +string DocumentType
+        +string DocumentNumber
+        +string Address
+      }
+
+      class UpdateCustomerProfileResource <<resource>> {
+        +string FullName
+        +string Phone
+        +string Address
+      }
+
+      class LaundryProfileResource <<resource>> {
+        +Guid Id
+        +string BusinessName
+        +string Address
         +string Phone
       }
-      class RegisterCustomerResource <<resource>> {
-        +string FullName
-        +string Email
+
+      class CreateLaundryResource <<resource>> {
+        +string BusinessName
+        +string Address
+        +string Phone
+      }
+
+      class UpdateLaundryResource <<resource>> {
+        +string BusinessName
+        +string Address
         +string Phone
       }
     }
@@ -464,454 +673,1944 @@ package "CustomerManagement" {
       class CustomerResourceFromEntityAssembler <<assembler>> {
         +ToResourceFromEntity(Customer) : CustomerResource
       }
-      class RegisterCustomerCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(RegisterCustomerResource) : RegisterCustomerCommand
+
+      class CreateCustomerCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(CreateCustomerResource) : CreateCustomerCommand
+      }
+
+      class UpdateCustomerProfileCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, UpdateCustomerProfileResource) : UpdateCustomerProfileCommand
+      }
+
+      class ActionResultFromCustomerResultAssembler <<assembler>> {
+        +ToActionResultFromCustomerResult(Result<Customer, CustomerError>, ControllerBase) : ActionResult
+      }
+
+      class LaundryProfileResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(Laundry) : LaundryProfileResource
+      }
+
+      class CreateLaundryCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(CreateLaundryResource) : CreateLaundryCommand
+      }
+
+      class UpdateLaundryCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, UpdateLaundryResource) : UpdateLaundryCommand
+      }
+
+      class ActionResultFromLaundryResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryResult(Result<Laundry, LaundryError>, ControllerBase) : ActionResult
       }
     }
   }
 
   package "Domain.Model" {
+
     package "ValueObjects" {
-      class EmailAddress <<value-object>> {
-        +string Value
+      class CustomerId <<value-object>> {
+        +Guid Value
+        +CustomerId(Guid)
       }
+
+      class LaundryId <<value-object>> {
+        +Guid Value
+        +LaundryId(Guid)
+      }
+
+      class DocumentNumber <<value-object>> {
+        +DocumentType Type
+        +string Value
+        +DocumentNumber(DocumentType, string)
+      }
+
       class PhoneNumber <<value-object>> {
         +string Value
+        +PhoneNumber(string)
+      }
+
+      enum DocumentType <<enum>> {
+        DNI
+        CE
       }
     }
 
     package "Commands" {
-      class RegisterCustomerCommand <<command>> {
+      class CreateCustomerCommand <<command>> {
+        +Guid UserId
         +string FullName
-        +EmailAddress Email
+        +PhoneNumber Phone
+        +DocumentNumber Document
+        +string Address
+      }
+
+      class UpdateCustomerProfileCommand <<command>> {
+        +CustomerId Id
+        +string FullName
+        +PhoneNumber Phone
+        +string Address
+      }
+
+      class CreateLaundryCommand <<command>> {
+        +string BusinessName
+        +string Address
+        +PhoneNumber Phone
+      }
+
+      class UpdateLaundryCommand <<command>> {
+        +LaundryId Id
+        +string BusinessName
+        +string Address
         +PhoneNumber Phone
       }
     }
 
     package "Queries" {
       class GetCustomerByIdQuery <<query>> {
-        +int Id
+        +CustomerId Id
+      }
+
+      class GetAllCustomersQuery <<query>> {
+      }
+
+      class GetLaundryByIdQuery <<query>> {
+        +LaundryId Id
       }
     }
 
     package "Aggregates" {
       class Customer <<aggregate>> {
-        +int Id
+        +CustomerId Id
+        +Guid UserId
         +string FullName
-        +EmailAddress Email
         +PhoneNumber Phone
-        +Customer(RegisterCustomerCommand)
+        +DocumentNumber Document
+        +string Address
+        +Customer(CreateCustomerCommand)
+        +UpdateProfile(UpdateCustomerProfileCommand) : void
+      }
+
+      class Laundry <<aggregate>> {
+        +LaundryId Id
+        +string BusinessName
+        +string Address
+        +PhoneNumber Phone
+        +Laundry(CreateLaundryCommand)
+        +Update(UpdateLaundryCommand) : void
+      }
+    }
+
+    package "Events" {
+      class CustomerUpdated <<event>> {
+        +Guid CustomerId
+      }
+
+      class LaundryCreated <<event>> {
+        +Guid LaundryId
+      }
+
+      class LaundryUpdated <<event>> {
+        +Guid LaundryId
       }
     }
   }
 
+  package "Domain.Repositories" {
+    interface ICustomerRepository <<repository>> {
+      +FindByDocumentAsync(DocumentNumber, CancellationToken) : Task<Customer?>
+      +FindByUserIdAsync(Guid, CancellationToken) : Task<Customer?>
+    }
+
+    interface ILaundryRepository <<repository>> {
+    }
+  }
+
   package "Application" {
+
     package "Errors" {
       enum CustomerError <<error>> {
-        DuplicateEmail
+        InvalidFullName
         InvalidPhone
+        InvalidDocument
+        DuplicateCustomer
+        CustomerNotFound
+        UnexpectedError
+      }
+
+      enum LaundryError <<error>> {
+        InvalidBusinessName
+        InvalidPhone
+        LaundryNotFound
+        UnexpectedError
       }
     }
 
     package "Services" {
       interface ICustomerCommandService <<application-service>> {
-        +Handle(RegisterCustomerCommand, CancellationToken) : Task<Result<Customer, CustomerError>>
+        +Handle(CreateCustomerCommand, CancellationToken) : Task<Result<Customer, CustomerError>>
+        +Handle(UpdateCustomerProfileCommand, CancellationToken) : Task<Result<Customer, CustomerError>>
       }
+
       interface ICustomerQueryService <<application-service>> {
         +Handle(GetCustomerByIdQuery, CancellationToken) : Task<Customer?>
+        +Handle(GetAllCustomersQuery, CancellationToken) : Task<IEnumerable<Customer>>
+      }
+
+      interface ILaundryCommandService <<application-service>> {
+        +Handle(CreateLaundryCommand, CancellationToken) : Task<Result<Laundry, LaundryError>>
+        +Handle(UpdateLaundryCommand, CancellationToken) : Task<Result<Laundry, LaundryError>>
+      }
+
+      interface ILaundryQueryService <<application-service>> {
+        +Handle(GetLaundryByIdQuery, CancellationToken) : Task<Laundry?>
       }
     }
 
     package "Internal.CommandServices" {
       class CustomerCommandService <<service>> {
-        +Handle(RegisterCustomerCommand, CancellationToken) : Task<Result<Customer, CustomerError>>
+        +Handle(CreateCustomerCommand, CancellationToken) : Task<Result<Customer, CustomerError>>
+        +Handle(UpdateCustomerProfileCommand, CancellationToken) : Task<Result<Customer, CustomerError>>
+      }
+
+      class LaundryCommandService <<service>> {
+        +Handle(CreateLaundryCommand, CancellationToken) : Task<Result<Laundry, LaundryError>>
+        +Handle(UpdateLaundryCommand, CancellationToken) : Task<Result<Laundry, LaundryError>>
       }
     }
 
     package "Internal.QueryServices" {
       class CustomerQueryService <<service>> {
         +Handle(GetCustomerByIdQuery, CancellationToken) : Task<Customer?>
+        +Handle(GetAllCustomersQuery, CancellationToken) : Task<IEnumerable<Customer>>
+      }
+
+      class LaundryQueryService <<service>> {
+        +Handle(GetLaundryByIdQuery, CancellationToken) : Task<Laundry?>
       }
     }
   }
 
-  package "Infrastructure.Persistence.EFC.Repositories" {
+  package "Infrastructure.Persistence.EntityFrameworkCore.Repositories" {
     class CustomerRepository <<repository>> {
-      +FindByEmailAsync(EmailAddress, CancellationToken) : Task<Customer?>
+      +FindByDocumentAsync(DocumentNumber, CancellationToken) : Task<Customer?>
+      +FindByUserIdAsync(Guid, CancellationToken) : Task<Customer?>
+    }
+
+    class LaundryRepository <<repository>> {
     }
   }
 }
 
-' ==============================================================================
-' BOUNDED CONTEXT: PICKUPS DELIVERIES
-' ==============================================================================
-package "PickupsDeliveries" {
+' Customer & Business Management relationships
+CustomersController --> ICustomerCommandService : uses
+CustomersController --> ICustomerQueryService : uses
+CustomersController --> CustomerResourceFromEntityAssembler : uses
+CustomersController --> CreateCustomerCommandFromResourceAssembler : uses
+CustomersController --> UpdateCustomerProfileCommandFromResourceAssembler : uses
+CustomersController --> ActionResultFromCustomerResultAssembler : uses
+LaundriesController --> ILaundryCommandService : uses
+LaundriesController --> ILaundryQueryService : uses
+LaundriesController --> LaundryProfileResourceFromEntityAssembler : uses
+LaundriesController --> CreateLaundryCommandFromResourceAssembler : uses
+LaundriesController --> UpdateLaundryCommandFromResourceAssembler : uses
+LaundriesController --> ActionResultFromLaundryResultAssembler : uses
+
+CustomerCommandService ..|> ICustomerCommandService : implements
+CustomerQueryService ..|> ICustomerQueryService : implements
+LaundryCommandService ..|> ILaundryCommandService : implements
+LaundryQueryService ..|> ILaundryQueryService : implements
+CustomerCommandService --> ICustomerRepository : uses
+CustomerCommandService --> IUnitOfWork : uses
+CustomerQueryService --> ICustomerRepository : uses
+LaundryCommandService --> ILaundryRepository : uses
+LaundryCommandService --> IUnitOfWork : uses
+LaundryQueryService --> ILaundryRepository : uses
+
+ICustomerRepository --|> IBaseRepository : extends
+ILaundryRepository --|> IBaseRepository : extends
+CustomerRepository ..|> ICustomerRepository : implements
+LaundryRepository ..|> ILaundryRepository : implements
+CustomerRepository --|> BaseRepository : extends
+LaundryRepository --|> BaseRepository : extends
+
+Customer --|> AggregateRoot : extends
+Laundry --|> AggregateRoot : extends
+Customer --> CustomerId : owns
+Customer --> DocumentNumber : owns
+Customer --> PhoneNumber : owns
+Laundry --> LaundryId : owns
+Laundry --> PhoneNumber : owns
+DocumentNumber --> DocumentType : has
+Customer ..> CustomerUpdated : raises
+Laundry ..> LaundryCreated : raises
+Laundry ..> LaundryUpdated : raises
+CustomerId ..|> IEntityId
+LaundryId ..|> IEntityId
+CustomerUpdated ..|> IEvent
+LaundryCreated ..|> IEvent
+LaundryUpdated ..|> IEvent
+
+CreateCustomerCommand --> DocumentNumber : contains
+CreateCustomerCommand --> PhoneNumber : contains
+UpdateCustomerProfileCommand --> CustomerId : contains
+CreateLaundryCommand --> PhoneNumber : contains
+UpdateLaundryCommand --> LaundryId : contains
+GetCustomerByIdQuery --> CustomerId : contains
+GetLaundryByIdQuery --> LaundryId : contains
+
+CustomerResourceFromEntityAssembler ..> Customer : reads
+CustomerResourceFromEntityAssembler --> CustomerResource : produces
+CreateCustomerCommandFromResourceAssembler ..> CreateCustomerResource : reads
+CreateCustomerCommandFromResourceAssembler --> CreateCustomerCommand : produces
+UpdateCustomerProfileCommandFromResourceAssembler ..> UpdateCustomerProfileResource : reads
+UpdateCustomerProfileCommandFromResourceAssembler --> UpdateCustomerProfileCommand : produces
+LaundryProfileResourceFromEntityAssembler ..> Laundry : reads
+LaundryProfileResourceFromEntityAssembler --> LaundryProfileResource : produces
+CreateLaundryCommandFromResourceAssembler ..> CreateLaundryResource : reads
+CreateLaundryCommandFromResourceAssembler --> CreateLaundryCommand : produces
+UpdateLaundryCommandFromResourceAssembler ..> UpdateLaundryResource : reads
+UpdateLaundryCommandFromResourceAssembler --> UpdateLaundryCommand : produces
+ActionResultFromCustomerResultAssembler ..> ResultT : maps
+ActionResultFromCustomerResultAssembler ..> CustomerError : branches
+ActionResultFromCustomerResultAssembler ..> ProblemDetailsFactory : uses
+ActionResultFromLaundryResultAssembler ..> ResultT : maps
+ActionResultFromLaundryResultAssembler ..> LaundryError : branches
+ActionResultFromLaundryResultAssembler ..> ProblemDetailsFactory : uses
+
+AppDbContext --> Customer : maps
+AppDbContext --> Laundry : maps
+
+note right of Customer
+  Referencia a IAM solo por id:
+  UserId (Guid)
+end note
+
+' =====================================================================
+' Order Management
+' =====================================================================
+package "OrderManagement" {
 
   package "Interfaces.REST" {
-    class PickupsDeliveriesController {
-      +SchedulePickupDelivery(SchedulePickupDeliveryResource, CancellationToken) : Task<ActionResult>
-      +GetPickupDeliveryByOrderId(int, CancellationToken) : Task<ActionResult>
+    class OrdersController {
+      +CreateOrder(CreateOrderResource, CancellationToken) : Task<ActionResult>
+      +GetOrderById(Guid, CancellationToken) : Task<ActionResult>
+      +GetOrders(Guid?, Guid?, CancellationToken) : Task<ActionResult>
+      +AddGarmentItem(Guid, AddGarmentItemResource, CancellationToken) : Task<ActionResult>
+      +RemoveGarmentItem(Guid, Guid, CancellationToken) : Task<ActionResult>
+      +ChangeOrderStatus(Guid, ChangeOrderStatusResource, CancellationToken) : Task<ActionResult>
     }
 
     package "Resources" {
-      class PickupDeliveryResource <<resource>> {
-        +int Id
-        +int OrderId
-        +string Address
+      class OrderResource <<resource>> {
+        +Guid Id
+        +Guid CustomerId
+        +Guid LaundryId
+        +string Status
+        +string DeliveryMethod
+        +string ServiceType
+        +DateOnly EstimatedDeliveryDate
+        +string SpecialCareInstructions
+        +DateTimeOffset CreatedAt
+        +IEnumerable<GarmentItemResource> Items
+      }
+
+      class GarmentItemResource <<resource>> {
+        +Guid Id
         +string Type
+        +int Quantity
+        +string CareInstructions
+      }
+
+      class CreateOrderResource <<resource>> {
+        +Guid CustomerId
+        +Guid LaundryId
+        +string DeliveryMethod
+        +string ServiceType
+        +DateOnly EstimatedDeliveryDate
+        +string SpecialCareInstructions
+        +IEnumerable<AddGarmentItemResource> Items
+      }
+
+      class AddGarmentItemResource <<resource>> {
+        +string Type
+        +int Quantity
+        +string CareInstructions
+      }
+
+      class ChangeOrderStatusResource <<resource>> {
         +string Status
       }
-      class SchedulePickupDeliveryResource <<resource>> {
-        +int OrderId
-        +string Address
-        +string Type
-      }
     }
 
     package "Transform" {
-      class PickupDeliveryResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(PickupDelivery) : PickupDeliveryResource
+      class OrderResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(Order) : OrderResource
       }
-      class SchedulePickupDeliveryCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(SchedulePickupDeliveryResource) : SchedulePickupDeliveryCommand
+
+      class GarmentItemResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(GarmentItem) : GarmentItemResource
+      }
+
+      class CreateOrderCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(CreateOrderResource) : CreateOrderCommand
+      }
+
+      class AddGarmentItemCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, AddGarmentItemResource) : AddGarmentItemCommand
+      }
+
+      class ChangeOrderStatusCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, ChangeOrderStatusResource) : ChangeOrderStatusCommand
+      }
+
+      class ActionResultFromOrderResultAssembler <<assembler>> {
+        +ToActionResultFromOrderResult(Result<Order, OrderError>, ControllerBase) : ActionResult
       }
     }
   }
 
   package "Domain.Model" {
+
     package "ValueObjects" {
-      class DeliveryAddress <<value-object>> {
-        +string Street
-        +string City
+      class OrderId <<value-object>> {
+        +Guid Value
+        +OrderId(Guid)
       }
-      enum ServiceType <<value-object>> {
-        Pickup
-        Delivery
+
+      class GarmentItemId <<value-object>> {
+        +Guid Value
+        +GarmentItemId(Guid)
       }
-      enum PickupDeliveryStatus <<value-object>> {
-        Scheduled
-        InTransit
-        Completed
-        Failed
+
+      enum OrderStatus <<enum>> {
+        CREATED
+        RECEIVED
+        CLASSIFIED
+        IN_PROCESS
+        READY
+        DELIVERED
+      }
+
+      enum DeliveryMethod <<enum>> {
+        PICKUP
+        DELIVERY
+      }
+
+      enum ServiceType <<enum>> {
+        WASHING
+        WASHING_DRYING
+        WASHING_IRONING
+        IRONING
+        DRYING
+        DRY_CLEANING
       }
     }
 
     package "Commands" {
-      class SchedulePickupDeliveryCommand <<command>> {
-        +int OrderId
-        +DeliveryAddress Address
-        +ServiceType Type
+      class CreateOrderCommand <<command>> {
+        +Guid CustomerId
+        +Guid LaundryId
+        +DeliveryMethod DeliveryMethod
+        +ServiceType ServiceType
+        +DateOnly EstimatedDeliveryDate
+        +string SpecialCareInstructions
+        +IEnumerable<AddGarmentItemCommand> Items
+      }
+
+      class AddGarmentItemCommand <<command>> {
+        +OrderId OrderId
+        +string Type
+        +int Quantity
+        +string CareInstructions
+      }
+
+      class RemoveGarmentItemCommand <<command>> {
+        +OrderId OrderId
+        +GarmentItemId GarmentItemId
+      }
+
+      class ChangeOrderStatusCommand <<command>> {
+        +OrderId OrderId
+        +OrderStatus NewStatus
       }
     }
 
     package "Queries" {
-      class GetPickupDeliveryByOrderIdQuery <<query>> {
-        +int OrderId
+      class GetOrderByIdQuery <<query>> {
+        +OrderId Id
+      }
+
+      class GetAllOrdersByCustomerIdQuery <<query>> {
+        +Guid CustomerId
+      }
+
+      class GetAllOrdersByLaundryIdQuery <<query>> {
+        +Guid LaundryId
       }
     }
 
     package "Aggregates" {
-      class PickupDelivery <<aggregate>> {
-        +int Id
-        +int OrderId
-        +DeliveryAddress Address
-        +ServiceType Type
-        +PickupDeliveryStatus Status
-        +PickupDelivery(SchedulePickupDeliveryCommand)
-        +MarkAsCompleted() : void
+      class Order <<aggregate>> {
+        +OrderId Id
+        +Guid CustomerId
+        +Guid LaundryId
+        +OrderStatus Status
+        +DeliveryMethod DeliveryMethod
+        +ServiceType ServiceType
+        +DateOnly EstimatedDeliveryDate
+        +string SpecialCareInstructions
+        +IReadOnlyCollection<GarmentItem> Items
+        +Order(CreateOrderCommand)
+        +AddGarmentItem(AddGarmentItemCommand) : void
+        +RemoveGarmentItem(GarmentItemId) : void
+        +AdvanceStatus(OrderStatus) : void
       }
+    }
+
+    package "Entities" {
+      class GarmentItem <<entity>> {
+        +GarmentItemId Id
+        +Guid OrderId
+        +string Type
+        +int Quantity
+        +string CareInstructions
+        +GarmentItem(AddGarmentItemCommand)
+      }
+    }
+
+    package "Events" {
+      class OrderCreated <<event>> {
+        +Guid OrderId
+      }
+
+      class GarmentItemAdded <<event>> {
+        +Guid OrderId
+        +Guid GarmentItemId
+      }
+
+      class GarmentItemRemoved <<event>> {
+        +Guid OrderId
+        +Guid GarmentItemId
+      }
+
+      class OrderReceived <<event>> {
+        +Guid OrderId
+      }
+
+      class OrderClassified <<event>> {
+        +Guid OrderId
+      }
+
+      class OrderInProcess <<event>> {
+        +Guid OrderId
+      }
+
+      class OrderReady <<event>> {
+        +Guid OrderId
+        +Guid CustomerId
+      }
+
+      class OrderDelivered <<event>> {
+        +Guid OrderId
+      }
+    }
+  }
+
+  package "Domain.Repositories" {
+    interface IOrderRepository <<repository>> {
+      +FindByCustomerIdAsync(Guid, CancellationToken) : Task<IEnumerable<Order>>
+      +FindByLaundryIdAsync(Guid, CancellationToken) : Task<IEnumerable<Order>>
     }
   }
 
   package "Application" {
+
     package "Errors" {
-      enum PickupDeliveryError <<error>> {
-        InvalidAddress
-        OrderNotReady
+      enum OrderError <<error>> {
+        InvalidCustomer
+        InvalidLaundry
+        InvalidEstimatedDeliveryDate
+        InvalidGarmentItem
+        GarmentItemsLockedAfterCreation
+        InvalidStatusTransition
+        OrderNotFound
+        GarmentItemNotFound
+        UnexpectedError
       }
     }
 
     package "Services" {
-      interface IPickupDeliveryCommandService <<application-service>> {
-        +Handle(SchedulePickupDeliveryCommand, CancellationToken) : Task<Result<PickupDelivery, PickupDeliveryError>>
+      interface IOrderCommandService <<application-service>> {
+        +Handle(CreateOrderCommand, CancellationToken) : Task<Result<Order, OrderError>>
+        +Handle(AddGarmentItemCommand, CancellationToken) : Task<Result<Order, OrderError>>
+        +Handle(RemoveGarmentItemCommand, CancellationToken) : Task<Result<Order, OrderError>>
+        +Handle(ChangeOrderStatusCommand, CancellationToken) : Task<Result<Order, OrderError>>
       }
-      interface IPickupDeliveryQueryService <<application-service>> {
-        +Handle(GetPickupDeliveryByOrderIdQuery, CancellationToken) : Task<PickupDelivery?>
+
+      interface IOrderQueryService <<application-service>> {
+        +Handle(GetOrderByIdQuery, CancellationToken) : Task<Order?>
+        +Handle(GetAllOrdersByCustomerIdQuery, CancellationToken) : Task<IEnumerable<Order>>
+        +Handle(GetAllOrdersByLaundryIdQuery, CancellationToken) : Task<IEnumerable<Order>>
       }
     }
 
     package "Internal.CommandServices" {
-      class PickupDeliveryCommandService <<service>> {
-        +Handle(SchedulePickupDeliveryCommand, CancellationToken) : Task<Result<PickupDelivery, PickupDeliveryError>>
+      class OrderCommandService <<service>> {
+        +Handle(CreateOrderCommand, CancellationToken) : Task<Result<Order, OrderError>>
+        +Handle(AddGarmentItemCommand, CancellationToken) : Task<Result<Order, OrderError>>
+        +Handle(RemoveGarmentItemCommand, CancellationToken) : Task<Result<Order, OrderError>>
+        +Handle(ChangeOrderStatusCommand, CancellationToken) : Task<Result<Order, OrderError>>
       }
     }
 
     package "Internal.QueryServices" {
-      class PickupDeliveryQueryService <<service>> {
-        +Handle(GetPickupDeliveryByOrderIdQuery, CancellationToken) : Task<PickupDelivery?>
+      class OrderQueryService <<service>> {
+        +Handle(GetOrderByIdQuery, CancellationToken) : Task<Order?>
+        +Handle(GetAllOrdersByCustomerIdQuery, CancellationToken) : Task<IEnumerable<Order>>
+        +Handle(GetAllOrdersByLaundryIdQuery, CancellationToken) : Task<IEnumerable<Order>>
+      }
+    }
+
+    package "Internal.EventHandlers" {
+      class PaymentConfirmedEventHandler <<event-handler>> {
+        +Handle(PaymentConfirmed, CancellationToken) : Task
       }
     }
   }
 
-  package "Infrastructure.Persistence.EFC.Repositories" {
-    class PickupDeliveryRepository <<repository>> {
-      +FindByOrderIdAsync(int, CancellationToken) : Task<PickupDelivery?>
+  package "Infrastructure.Persistence.EntityFrameworkCore.Repositories" {
+    class OrderRepository <<repository>> {
+      +FindByCustomerIdAsync(Guid, CancellationToken) : Task<IEnumerable<Order>>
+      +FindByLaundryIdAsync(Guid, CancellationToken) : Task<IEnumerable<Order>>
     }
   }
 }
 
-' ==============================================================================
-' BOUNDED CONTEXT: TRACKING NOTIFICATIONS
-' ==============================================================================
-package "TrackingNotifications" {
+' Order Management relationships
+OrdersController --> IOrderCommandService : uses
+OrdersController --> IOrderQueryService : uses
+OrdersController --> OrderResourceFromEntityAssembler : uses
+OrdersController --> CreateOrderCommandFromResourceAssembler : uses
+OrdersController --> AddGarmentItemCommandFromResourceAssembler : uses
+OrdersController --> ChangeOrderStatusCommandFromResourceAssembler : uses
+OrdersController --> ActionResultFromOrderResultAssembler : uses
+
+OrderCommandService ..|> IOrderCommandService : implements
+OrderQueryService ..|> IOrderQueryService : implements
+OrderCommandService --> IOrderRepository : uses
+OrderCommandService --> IUnitOfWork : uses
+OrderQueryService --> IOrderRepository : uses
+
+PaymentConfirmedEventHandler ..|> IEventHandler : implements
+PaymentConfirmedEventHandler --> IOrderCommandService : uses
+PaymentConfirmedEventHandler ..> PaymentConfirmed : handles
+
+IOrderRepository --|> IBaseRepository : extends
+OrderRepository ..|> IOrderRepository : implements
+OrderRepository --|> BaseRepository : extends
+
+Order --|> AggregateRoot : extends
+Order ..|> IAuditableEntity : implements
+Order --> OrderId : owns
+Order *-- GarmentItem : contains 1..*
+Order --> OrderStatus : has
+Order --> DeliveryMethod : has
+Order --> ServiceType : has
+GarmentItem --> GarmentItemId : owns
+OrderId ..|> IEntityId
+GarmentItemId ..|> IEntityId
+
+Order ..> OrderCreated : raises
+Order ..> GarmentItemAdded : raises
+Order ..> GarmentItemRemoved : raises
+Order ..> OrderReceived : raises
+Order ..> OrderClassified : raises
+Order ..> OrderInProcess : raises
+Order ..> OrderReady : raises
+Order ..> OrderDelivered : raises
+OrderCreated ..|> IEvent
+GarmentItemAdded ..|> IEvent
+GarmentItemRemoved ..|> IEvent
+OrderReceived ..|> IEvent
+OrderClassified ..|> IEvent
+OrderInProcess ..|> IEvent
+OrderReady ..|> IEvent
+OrderDelivered ..|> IEvent
+
+CreateOrderCommand --> DeliveryMethod : contains
+CreateOrderCommand --> ServiceType : contains
+CreateOrderCommand --> AddGarmentItemCommand : contains
+AddGarmentItemCommand --> OrderId : contains
+RemoveGarmentItemCommand --> OrderId : contains
+RemoveGarmentItemCommand --> GarmentItemId : contains
+ChangeOrderStatusCommand --> OrderId : contains
+ChangeOrderStatusCommand --> OrderStatus : contains
+GetOrderByIdQuery --> OrderId : contains
+
+OrderResourceFromEntityAssembler ..> Order : reads
+OrderResourceFromEntityAssembler --> OrderResource : produces
+OrderResourceFromEntityAssembler ..> GarmentItemResourceFromEntityAssembler : uses
+GarmentItemResourceFromEntityAssembler ..> GarmentItem : reads
+GarmentItemResourceFromEntityAssembler --> GarmentItemResource : produces
+OrderResource *-- GarmentItemResource : items
+CreateOrderCommandFromResourceAssembler ..> CreateOrderResource : reads
+CreateOrderCommandFromResourceAssembler --> CreateOrderCommand : produces
+AddGarmentItemCommandFromResourceAssembler ..> AddGarmentItemResource : reads
+AddGarmentItemCommandFromResourceAssembler --> AddGarmentItemCommand : produces
+ChangeOrderStatusCommandFromResourceAssembler ..> ChangeOrderStatusResource : reads
+ChangeOrderStatusCommandFromResourceAssembler --> ChangeOrderStatusCommand : produces
+ActionResultFromOrderResultAssembler ..> ResultT : maps
+ActionResultFromOrderResultAssembler ..> OrderError : branches
+ActionResultFromOrderResultAssembler ..> ProblemDetailsFactory : uses
+
+AppDbContext --> Order : maps
+AppDbContext --> GarmentItem : maps
+
+note right of Order
+  Reglas de dominio:
+  - Items solo se agregan/quitan en estado CREATED
+  - Estado solo avanza: CREATED -> RECEIVED -> CLASSIFIED
+    -> IN_PROCESS -> READY -> DELIVERED
+  - CustomerId y LaundryId son referencias por id
+end note
+
+' =====================================================================
+' Laundry Operations
+' =====================================================================
+package "LaundryOperations" {
 
   package "Interfaces.REST" {
-    class TrackingNotificationsController {
-      +SendNotification(SendNotificationResource, CancellationToken) : Task<ActionResult>
+    class LaundryOrdersController {
+      +GetLaundryOrderById(Guid, CancellationToken) : Task<ActionResult>
+      +GetAllLaundryOrders(CancellationToken) : Task<ActionResult>
+      +ClassifyLaundryOrder(Guid, CancellationToken) : Task<ActionResult>
+      +AssignWashingCycle(Guid, AssignWashingCycleResource, CancellationToken) : Task<ActionResult>
+      +AssignResource(Guid, AssignResourceResource, CancellationToken) : Task<ActionResult>
+      +AdvanceStage(Guid, CancellationToken) : Task<ActionResult>
+      +PrioritizeLaundryOrder(Guid, PrioritizeLaundryOrderResource, CancellationToken) : Task<ActionResult>
+    }
+
+    class LaundryResourcesController {
+      +GetResourcesByLaundryId(Guid, CancellationToken) : Task<ActionResult>
+      +ReleaseResource(Guid, CancellationToken) : Task<ActionResult>
+    }
+
+    class WashingCyclesController {
+      +GetAllWashingCycles(CancellationToken) : Task<ActionResult>
     }
 
     package "Resources" {
-      class TrackingNotificationResource <<resource>> {
-        +int Id
-        +string Recipient
-        +string TrackingMessage
-        +string Type
+      class LaundryOrderResource <<resource>> {
+        +Guid Id
+        +Guid OrderId
+        +string CurrentStage
+        +string Priority
+        +Guid? WashingCycleId
+        +Guid? ResourceId
+        +DateTimeOffset? ExpectedCompletion
       }
-      class SendNotificationResource <<resource>> {
-        +string Recipient
-        +string TrackingMessage
-        +string Type
+
+      class AssignWashingCycleResource <<resource>> {
+        +Guid WashingCycleId
+      }
+
+      class AssignResourceResource <<resource>> {
+        +Guid ResourceId
+      }
+
+      class PrioritizeLaundryOrderResource <<resource>> {
+        +string Priority
+      }
+
+      class LaundryResourceResource <<resource>> {
+        +Guid Id
+        +Guid LaundryId
+        +string Name
+        +string Status
+        +int Capacity
+      }
+
+      class WashingCycleResource <<resource>> {
+        +Guid Id
+        +string Name
+        +int DurationMinutes
+        +string CompatibleType
       }
     }
 
     package "Transform" {
-      class TrackingNotificationResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(TrackingNotification) : TrackingNotificationResource
+      class LaundryOrderResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(LaundryOrder) : LaundryOrderResource
       }
-      class SendNotificationCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(SendNotificationResource) : SendNotificationCommand
+
+      class LaundryResourceResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(LaundryResource) : LaundryResourceResource
+      }
+
+      class WashingCycleResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(WashingCycle) : WashingCycleResource
+      }
+
+      class AssignWashingCycleCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, AssignWashingCycleResource) : AssignWashingCycleCommand
+      }
+
+      class AssignResourceCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, AssignResourceResource) : AssignResourceCommand
+      }
+
+      class PrioritizeLaundryOrderCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(Guid, PrioritizeLaundryOrderResource) : PrioritizeLaundryOrderCommand
+      }
+
+      class ActionResultFromLaundryOrderResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryOrderResult(Result<LaundryOrder, LaundryOrderError>, ControllerBase) : ActionResult
+      }
+
+      class ActionResultFromLaundryResourceResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryResourceResult(Result<LaundryResource, LaundryResourceError>, ControllerBase) : ActionResult
       }
     }
   }
 
   package "Domain.Model" {
+
     package "ValueObjects" {
-      enum NotificationType <<value-object>> {
-        SMS
-        Email
-        Push
+      class LaundryOrderId <<value-object>> {
+        +Guid Value
+        +LaundryOrderId(Guid)
+      }
+
+      class LaundryResourceId <<value-object>> {
+        +Guid Value
+        +LaundryResourceId(Guid)
+      }
+
+      class WashingCycleId <<value-object>> {
+        +Guid Value
+        +WashingCycleId(Guid)
+      }
+
+      enum ProcessingStage <<enum>> {
+        RECEPTION
+        CLASSIFICATION
+        WASHING
+        DRYING_IRONING
+        PACKAGING
+        READY
+      }
+
+      enum Priority <<enum>> {
+        NORMAL
+        VIP
+      }
+
+      enum ResourceStatus <<enum>> {
+        AVAILABLE
+        BUSY
+        MAINTENANCE
       }
     }
 
     package "Commands" {
-      class SendNotificationCommand <<command>> {
-        +string Recipient
-        +string TrackingMessage
-        +NotificationType Type
+      class ReceiveLaundryOrderCommand <<command>> {
+        +Guid OrderId
+        +Priority Priority
+      }
+
+      class ClassifyLaundryOrderCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+      }
+
+      class AssignWashingCycleCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +WashingCycleId WashingCycleId
+      }
+
+      class AssignResourceCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +LaundryResourceId ResourceId
+      }
+
+      class AdvanceStageCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+      }
+
+      class PrioritizeLaundryOrderCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +Priority Priority
+      }
+
+      class ReleaseResourceCommand <<command>> {
+        +LaundryResourceId ResourceId
+      }
+
+      class SyncResourceStatusCommand <<command>> {
+        +LaundryResourceId ResourceId
+        +ResourceStatus Status
       }
     }
 
     package "Queries" {
-      class GetNotificationByIdQuery <<query>> {
-        +int Id
+      class GetLaundryOrderByIdQuery <<query>> {
+        +LaundryOrderId Id
+      }
+
+      class GetAllLaundryOrdersQuery <<query>> {
+      }
+
+      class GetAllLaundryResourcesByLaundryIdQuery <<query>> {
+        +Guid LaundryId
+      }
+
+      class GetAllWashingCyclesQuery <<query>> {
       }
     }
 
     package "Aggregates" {
-      class TrackingNotification <<aggregate>> {
-        +int Id
-        +string Recipient
-        +string TrackingMessage
-        +NotificationType Type
-        +bool Sent
-        +TrackingNotification(SendNotificationCommand)
-        +MarkAsSent() : void
+      class LaundryOrder <<aggregate>> {
+        +LaundryOrderId Id
+        +Guid OrderId
+        +ProcessingStage CurrentStage
+        +Priority Priority
+        +Guid? WashingCycleId
+        +Guid? ResourceId
+        +DateTimeOffset? ExpectedCompletion
+        +LaundryOrder(ReceiveLaundryOrderCommand)
+        +Classify() : void
+        +AssignWashingCycle(WashingCycleId) : void
+        +AssignResource(LaundryResourceId) : void
+        +AdvanceStage() : void
+        +Prioritize(Priority) : void
+        +IsReady : bool
       }
+
+      class LaundryResource <<aggregate>> {
+        +LaundryResourceId Id
+        +Guid LaundryId
+        +string Name
+        +ResourceStatus Status
+        +int Capacity
+        +IsAvailable : bool
+        +Assign() : void
+        +Release() : void
+        +ApplyMonitoredStatus(ResourceStatus) : void
+      }
+    }
+
+    package "Entities" {
+      class WashingCycle <<entity>> {
+        +WashingCycleId Id
+        +string Name
+        +int DurationMinutes
+        +string CompatibleType
+        +IsCompatible(string) : bool
+      }
+    }
+
+    package "Events" {
+      class LaundryOrderReceived <<event>> {
+        +Guid LaundryOrderId
+        +Guid OrderId
+      }
+
+      class LaundryOrderClassified <<event>> {
+        +Guid LaundryOrderId
+      }
+
+      class WashingCycleAssigned <<event>> {
+        +Guid LaundryOrderId
+        +Guid WashingCycleId
+      }
+
+      class ResourceAssigned <<event>> {
+        +Guid ResourceId
+        +Guid LaundryOrderId
+      }
+
+      class StageAdvanced <<event>> {
+        +Guid LaundryOrderId
+        +Guid OrderId
+        +ProcessingStage Stage
+      }
+
+      class OrderPrioritized <<event>> {
+        +Guid LaundryOrderId
+        +Priority Priority
+      }
+
+      class ResourceReleased <<event>> {
+        +Guid ResourceId
+      }
+
+      class ResourceStatusChanged <<event>> {
+        +Guid ResourceId
+        +ResourceStatus Status
+      }
+    }
+  }
+
+  package "Domain.Repositories" {
+    interface ILaundryOrderRepository <<repository>> {
+      +FindByOrderIdAsync(Guid, CancellationToken) : Task<LaundryOrder?>
+    }
+
+    interface ILaundryResourceRepository <<repository>> {
+      +FindByLaundryIdAsync(Guid, CancellationToken) : Task<IEnumerable<LaundryResource>>
+    }
+
+    interface IWashingCycleRepository <<repository>> {
     }
   }
 
   package "Application" {
+
     package "Errors" {
-      enum TrackingNotificationError <<error>> {
-        DeliveryFailed
-        InvalidRecipient
+      enum LaundryOrderError <<error>> {
+        LaundryOrderNotFound
+        OrderAlreadyReceived
+        OrderAlreadyReady
+        WashingCycleAndResourceRequired
+        WashingCycleNotFound
+        ResourceNotFound
+        InvalidStageTransition
+        UnexpectedError
+      }
+
+      enum LaundryResourceError <<error>> {
+        ResourceNotFound
+        ResourceNotAvailable
+        ResourceNotBusy
+        InvalidResourceStatus
+        UnexpectedError
       }
     }
 
     package "Services" {
-      interface ITrackingNotificationCommandService <<application-service>> {
-        +Handle(SendNotificationCommand, CancellationToken) : Task<Result<TrackingNotification, TrackingNotificationError>>
+      interface ILaundryOrderCommandService <<application-service>> {
+        +Handle(ReceiveLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(ClassifyLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignWashingCycleCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignResourceCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AdvanceStageCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(PrioritizeLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
       }
-      interface ITrackingNotificationQueryService <<application-service>> {
-        +Handle(GetNotificationByIdQuery, CancellationToken) : Task<TrackingNotification?>
+
+      interface ILaundryResourceCommandService <<application-service>> {
+        +Handle(ReleaseResourceCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+        +Handle(SyncResourceStatusCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+      }
+
+      interface ILaundryOperationsQueryService <<application-service>> {
+        +Handle(GetLaundryOrderByIdQuery, CancellationToken) : Task<LaundryOrder?>
+        +Handle(GetAllLaundryOrdersQuery, CancellationToken) : Task<IEnumerable<LaundryOrder>>
+        +Handle(GetAllLaundryResourcesByLaundryIdQuery, CancellationToken) : Task<IEnumerable<LaundryResource>>
+        +Handle(GetAllWashingCyclesQuery, CancellationToken) : Task<IEnumerable<WashingCycle>>
+      }
+    }
+
+    package "Outbound" {
+      interface IResourceMonitoringFacade <<port>> {
+        +GetResourceStatusAsync(LaundryResourceId, CancellationToken) : Task<ResourceStatus>
       }
     }
 
     package "Internal.CommandServices" {
-      class TrackingNotificationCommandService <<service>> {
-        +Handle(SendNotificationCommand, CancellationToken) : Task<Result<TrackingNotification, TrackingNotificationError>>
+      class LaundryOrderCommandService <<service>> {
+        +Handle(ReceiveLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(ClassifyLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignWashingCycleCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignResourceCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AdvanceStageCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(PrioritizeLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+      }
+
+      class LaundryResourceCommandService <<service>> {
+        +Handle(ReleaseResourceCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+        +Handle(SyncResourceStatusCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
       }
     }
 
     package "Internal.QueryServices" {
-      class TrackingNotificationQueryService <<service>> {
-        +Handle(GetNotificationByIdQuery, CancellationToken) : Task<TrackingNotification?>
+      class LaundryOperationsQueryService <<service>> {
+        +Handle(GetLaundryOrderByIdQuery, CancellationToken) : Task<LaundryOrder?>
+        +Handle(GetAllLaundryOrdersQuery, CancellationToken) : Task<IEnumerable<LaundryOrder>>
+        +Handle(GetAllLaundryResourcesByLaundryIdQuery, CancellationToken) : Task<IEnumerable<LaundryResource>>
+        +Handle(GetAllWashingCyclesQuery, CancellationToken) : Task<IEnumerable<WashingCycle>>
+      }
+    }
+
+    package "Internal.EventHandlers" {
+      class OrderReceivedEventHandler <<event-handler>> {
+        +Handle(OrderReceived, CancellationToken) : Task
       }
     }
   }
 
-  package "Infrastructure.Persistence.EFC.Repositories" {
-    class TrackingNotificationRepository <<repository>> {
-      +FindPendingNotificationsAsync(CancellationToken) : Task<IEnumerable<TrackingNotification>>
+  package "Infrastructure" {
+
+    package "Persistence.EntityFrameworkCore.Repositories" {
+      class LaundryOrderRepository <<repository>> {
+        +FindByOrderIdAsync(Guid, CancellationToken) : Task<LaundryOrder?>
+      }
+
+      class LaundryResourceRepository <<repository>> {
+        +FindByLaundryIdAsync(Guid, CancellationToken) : Task<IEnumerable<LaundryResource>>
+      }
+
+      class WashingCycleRepository <<repository>> {
+      }
+    }
+
+    package "ExternalServices.IoT" {
+      class IotGatewayClient <<external-client>> {
+        +GetTelemetryAsync(Guid, CancellationToken) : Task<SensorTelemetryPayload>
+      }
+
+      class SensorTelemetryPayload <<payload>> {
+        +Guid ResourceId
+        +string State
+        +DateTimeOffset ReadAt
+      }
+
+      class ResourceMonitoringACL <<acl>> {
+        +GetResourceStatusAsync(LaundryResourceId, CancellationToken) : Task<ResourceStatus>
+        -Translate(SensorTelemetryPayload) : ResourceStatus
+      }
     }
   }
 }
 
-' ==============================================================================
-' BOUNDED CONTEXT: PAYMENT
-' ==============================================================================
-package "Payment" {
+' Laundry Operations relationships
+LaundryOrdersController --> ILaundryOrderCommandService : uses
+LaundryOrdersController --> ILaundryOperationsQueryService : uses
+LaundryOrdersController --> LaundryOrderResourceFromEntityAssembler : uses
+LaundryOrdersController --> AssignWashingCycleCommandFromResourceAssembler : uses
+LaundryOrdersController --> AssignResourceCommandFromResourceAssembler : uses
+LaundryOrdersController --> PrioritizeLaundryOrderCommandFromResourceAssembler : uses
+LaundryOrdersController --> ActionResultFromLaundryOrderResultAssembler : uses
+LaundryResourcesController --> ILaundryResourceCommandService : uses
+LaundryResourcesController --> ILaundryOperationsQueryService : uses
+LaundryResourcesController --> LaundryResourceResourceFromEntityAssembler : uses
+LaundryResourcesController --> ActionResultFromLaundryResourceResultAssembler : uses
+WashingCyclesController --> ILaundryOperationsQueryService : uses
+WashingCyclesController --> WashingCycleResourceFromEntityAssembler : uses
+
+LaundryOrderCommandService ..|> ILaundryOrderCommandService : implements
+LaundryResourceCommandService ..|> ILaundryResourceCommandService : implements
+LaundryOperationsQueryService ..|> ILaundryOperationsQueryService : implements
+LaundryOrderCommandService --> ILaundryOrderRepository : uses
+LaundryOrderCommandService --> ILaundryResourceRepository : uses
+LaundryOrderCommandService --> IWashingCycleRepository : uses
+LaundryOrderCommandService --> IUnitOfWork : uses
+LaundryResourceCommandService --> ILaundryResourceRepository : uses
+LaundryResourceCommandService --> IUnitOfWork : uses
+LaundryOperationsQueryService --> ILaundryOrderRepository : uses
+LaundryOperationsQueryService --> ILaundryResourceRepository : uses
+LaundryOperationsQueryService --> IWashingCycleRepository : uses
+
+OrderReceivedEventHandler ..|> IEventHandler : implements
+OrderReceivedEventHandler --> ILaundryOrderCommandService : uses
+OrderReceivedEventHandler ..> OrderReceived : handles
+
+ILaundryOrderRepository --|> IBaseRepository : extends
+ILaundryResourceRepository --|> IBaseRepository : extends
+IWashingCycleRepository --|> IBaseRepository : extends
+LaundryOrderRepository ..|> ILaundryOrderRepository : implements
+LaundryResourceRepository ..|> ILaundryResourceRepository : implements
+WashingCycleRepository ..|> IWashingCycleRepository : implements
+LaundryOrderRepository --|> BaseRepository : extends
+LaundryResourceRepository --|> BaseRepository : extends
+WashingCycleRepository --|> BaseRepository : extends
+
+ResourceMonitoringACL ..|> IResourceMonitoringFacade : implements
+ResourceMonitoringACL --> IotGatewayClient : uses
+ResourceMonitoringACL ..> SensorTelemetryPayload : translates
+ResourceMonitoringACL ..> ResourceStatus : produces
+IotGatewayClient --> SensorTelemetryPayload : returns
+LaundryResourceCommandService --> IResourceMonitoringFacade : uses
+
+LaundryOrder --|> AggregateRoot : extends
+LaundryResource --|> AggregateRoot : extends
+LaundryOrder --> LaundryOrderId : owns
+LaundryOrder --> ProcessingStage : has
+LaundryOrder --> Priority : has
+LaundryResource --> LaundryResourceId : owns
+LaundryResource --> ResourceStatus : has
+WashingCycle --> WashingCycleId : owns
+LaundryOrderId ..|> IEntityId
+LaundryResourceId ..|> IEntityId
+WashingCycleId ..|> IEntityId
+
+LaundryOrder ..> LaundryOrderReceived : raises
+LaundryOrder ..> LaundryOrderClassified : raises
+LaundryOrder ..> WashingCycleAssigned : raises
+LaundryOrder ..> StageAdvanced : raises
+LaundryOrder ..> OrderPrioritized : raises
+LaundryResource ..> ResourceAssigned : raises
+LaundryResource ..> ResourceReleased : raises
+LaundryResource ..> ResourceStatusChanged : raises
+LaundryOrderReceived ..|> IEvent
+LaundryOrderClassified ..|> IEvent
+WashingCycleAssigned ..|> IEvent
+ResourceAssigned ..|> IEvent
+StageAdvanced ..|> IEvent
+OrderPrioritized ..|> IEvent
+ResourceReleased ..|> IEvent
+ResourceStatusChanged ..|> IEvent
+
+ReceiveLaundryOrderCommand --> Priority : contains
+AssignWashingCycleCommand --> LaundryOrderId : contains
+AssignWashingCycleCommand --> WashingCycleId : contains
+AssignResourceCommand --> LaundryOrderId : contains
+AssignResourceCommand --> LaundryResourceId : contains
+PrioritizeLaundryOrderCommand --> Priority : contains
+SyncResourceStatusCommand --> ResourceStatus : contains
+GetLaundryOrderByIdQuery --> LaundryOrderId : contains
+
+LaundryOrderResourceFromEntityAssembler ..> LaundryOrder : reads
+LaundryOrderResourceFromEntityAssembler --> LaundryOrderResource : produces
+LaundryResourceResourceFromEntityAssembler ..> LaundryResource : reads
+LaundryResourceResourceFromEntityAssembler --> LaundryResourceResource : produces
+WashingCycleResourceFromEntityAssembler ..> WashingCycle : reads
+WashingCycleResourceFromEntityAssembler --> WashingCycleResource : produces
+AssignWashingCycleCommandFromResourceAssembler ..> AssignWashingCycleResource : reads
+AssignWashingCycleCommandFromResourceAssembler --> AssignWashingCycleCommand : produces
+AssignResourceCommandFromResourceAssembler ..> AssignResourceResource : reads
+AssignResourceCommandFromResourceAssembler --> AssignResourceCommand : produces
+PrioritizeLaundryOrderCommandFromResourceAssembler ..> PrioritizeLaundryOrderResource : reads
+PrioritizeLaundryOrderCommandFromResourceAssembler --> PrioritizeLaundryOrderCommand : produces
+ActionResultFromLaundryOrderResultAssembler ..> ResultT : maps
+ActionResultFromLaundryOrderResultAssembler ..> LaundryOrderError : branches
+ActionResultFromLaundryOrderResultAssembler ..> ProblemDetailsFactory : uses
+ActionResultFromLaundryResourceResultAssembler ..> ResultT : maps
+ActionResultFromLaundryResourceResultAssembler ..> LaundryResourceError : branches
+ActionResultFromLaundryResourceResultAssembler ..> ProblemDetailsFactory : uses
+
+AppDbContext --> LaundryOrder : maps
+AppDbContext --> LaundryResource : maps
+AppDbContext --> WashingCycle : maps
+
+note right of LaundryOrder
+  Reglas de dominio:
+  - No pasa a WASHING sin ciclo de lavado y recurso asignados
+  - No cambia de prioridad una vez READY
+  - OrderId es referencia por id a OrderManagement
+end note
+
+note right of LaundryResource
+  Reglas de dominio:
+  - Assign() solo si AVAILABLE
+  - Release() solo si BUSY
+end note
+
+' =====================================================================
+' Subscription & Payment
+' =====================================================================
+package "SubscriptionPayment" {
 
   package "Interfaces.REST" {
     class PaymentsController {
-      +ProcessPayment(ProcessPaymentResource, CancellationToken) : Task<ActionResult>
-      +GetPaymentById(int, CancellationToken) : Task<ActionResult>
+      +CreatePayment(CreatePaymentResource, CancellationToken) : Task<ActionResult>
+      +GetPaymentById(Guid, CancellationToken) : Task<ActionResult>
+      +GetPayments(Guid?, Guid?, CancellationToken) : Task<ActionResult>
+      +ProcessPayment(Guid, ProcessPaymentResource, CancellationToken) : Task<ActionResult>
+      +ConfirmPayment(Guid, CancellationToken) : Task<ActionResult>
+    }
+
+    class SubscriptionsController {
+      +SubscribeToPlan(SubscribeToPlanResource, CancellationToken) : Task<ActionResult>
+      +GetSubscriptionsByCustomerId(Guid, CancellationToken) : Task<ActionResult>
+      +CancelSubscription(Guid, CancellationToken) : Task<ActionResult>
+    }
+
+    class SubscriptionPlansController {
+      +GetAllSubscriptionPlans(CancellationToken) : Task<ActionResult>
     }
 
     package "Resources" {
       class PaymentResource <<resource>> {
-        +int Id
-        +int OrderId
+        +Guid Id
+        +Guid CustomerId
+        +Guid OrderId
         +decimal Amount
-        +string Status
-        +string TransactionId
-      }
-      class ProcessPaymentResource <<resource>> {
-        +int OrderId
-        +decimal Amount
+        +string Currency
         +string PaymentMethod
+        +string Status
+        +string? TransactionId
+        +DateTimeOffset? ProcessedAt
+      }
+
+      class CreatePaymentResource <<resource>> {
+        +Guid CustomerId
+        +Guid OrderId
+        +decimal Amount
+        +string Currency
+        +string PaymentMethod
+      }
+
+      class ProcessPaymentResource <<resource>> {
+        +string PaymentToken
+      }
+
+      class SubscriptionResource <<resource>> {
+        +Guid Id
+        +Guid CustomerId
+        +Guid PlanId
+        +DateOnly StartDate
+        +DateOnly ExpirationDate
+        +string Status
+        +int Credits
+      }
+
+      class SubscribeToPlanResource <<resource>> {
+        +Guid CustomerId
+        +Guid PlanId
+      }
+
+      class SubscriptionPlanResource <<resource>> {
+        +Guid Id
+        +string Name
+        +decimal Price
+        +int Credits
+        +int DurationDays
       }
     }
 
     package "Transform" {
       class PaymentResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(PaymentTransaction) : PaymentResource
+        +ToResourceFromEntity(Payment) : PaymentResource
       }
+
+      class CreatePaymentCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(CreatePaymentResource) : CreatePaymentCommand
+      }
+
       class ProcessPaymentCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(ProcessPaymentResource) : ProcessPaymentCommand
+        +ToCommandFromResource(Guid, ProcessPaymentResource) : ProcessPaymentCommand
+      }
+
+      class SubscriptionResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(Subscription) : SubscriptionResource
+      }
+
+      class SubscribeToPlanCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(SubscribeToPlanResource) : SubscribeToPlanCommand
+      }
+
+      class SubscriptionPlanResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(SubscriptionPlan) : SubscriptionPlanResource
+      }
+
+      class ActionResultFromPaymentResultAssembler <<assembler>> {
+        +ToActionResultFromPaymentResult(Result<Payment, PaymentError>, ControllerBase) : ActionResult
+      }
+
+      class ActionResultFromSubscriptionResultAssembler <<assembler>> {
+        +ToActionResultFromSubscriptionResult(Result<Subscription, SubscriptionError>, ControllerBase) : ActionResult
       }
     }
   }
 
   package "Domain.Model" {
+
     package "ValueObjects" {
-      class TransactionId <<value-object>> {
-        +string Value
+      class PaymentId <<value-object>> {
+        +Guid Value
+        +PaymentId(Guid)
       }
-      enum PaymentStatus <<value-object>> {
-        Pending
-        Completed
-        Failed
-        Refunded
+
+      class SubscriptionId <<value-object>> {
+        +Guid Value
+        +SubscriptionId(Guid)
+      }
+
+      class SubscriptionPlanId <<value-object>> {
+        +Guid Value
+        +SubscriptionPlanId(Guid)
+      }
+
+      class Money <<value-object>> {
+        +decimal Amount
+        +Currency Currency
+        +Money(decimal, Currency)
+        +Add(Money) : Money
+        +Multiply(decimal) : Money
+      }
+
+      class Currency <<value-object>> {
+        +string Code
+        +Currency(string)
+      }
+
+      class PaymentResult <<value-object>> {
+        +bool IsApproved
+        +string TransactionId
+        +string? FailureReason
+      }
+
+      enum PaymentStatus <<enum>> {
+        PENDING
+        PAID
+        FAILED
+        CANCELLED
+      }
+
+      enum SubscriptionStatus <<enum>> {
+        ACTIVE
+        EXPIRED
+        CANCELLED
       }
     }
 
     package "Commands" {
-      class ProcessPaymentCommand <<command>> {
-        +int OrderId
-        +decimal Amount
+      class CreatePaymentCommand <<command>> {
+        +Guid CustomerId
+        +Guid OrderId
+        +Money Amount
         +string PaymentMethod
+      }
+
+      class ProcessPaymentCommand <<command>> {
+        +PaymentId PaymentId
+        +string PaymentToken
+      }
+
+      class ConfirmPaymentCommand <<command>> {
+        +PaymentId PaymentId
+      }
+
+      class SubscribeToPlanCommand <<command>> {
+        +Guid CustomerId
+        +SubscriptionPlanId PlanId
+      }
+
+      class ValidateSubscriptionCommand <<command>> {
+        +Guid CustomerId
+      }
+
+      class ApplyBenefitCommand <<command>> {
+        +Guid CustomerId
+        +Guid OrderId
+      }
+
+      class CancelSubscriptionCommand <<command>> {
+        +SubscriptionId SubscriptionId
       }
     }
 
     package "Queries" {
       class GetPaymentByIdQuery <<query>> {
-        +int Id
+        +PaymentId Id
+      }
+
+      class GetAllPaymentsByCustomerIdQuery <<query>> {
+        +Guid CustomerId
+      }
+
+      class GetPaymentsByOrderIdQuery <<query>> {
+        +Guid OrderId
+      }
+
+      class GetSubscriptionsByCustomerIdQuery <<query>> {
+        +Guid CustomerId
+      }
+
+      class GetAllSubscriptionPlansQuery <<query>> {
       }
     }
 
     package "Aggregates" {
-      class PaymentTransaction <<aggregate>> {
-        +int Id
-        +int OrderId
-        +decimal Amount
-        +TransactionId TransactionId
+      class Payment <<aggregate>> {
+        +PaymentId Id
+        +Guid CustomerId
+        +Guid OrderId
+        +Money Amount
+        +string PaymentMethod
         +PaymentStatus Status
-        +PaymentTransaction(ProcessPaymentCommand)
-        +Complete(TransactionId) : void
+        +string? TransactionId
+        +DateTimeOffset? ProcessedAt
+        +Payment(CreatePaymentCommand)
+        +MarkProcessed(PaymentResult) : void
+        +Confirm() : void
+        +Cancel() : void
+      }
+
+      class Subscription <<aggregate>> {
+        +SubscriptionId Id
+        +Guid CustomerId
+        +SubscriptionPlanId PlanId
+        +DateOnly StartDate
+        +DateOnly ExpirationDate
+        +SubscriptionStatus Status
+        +int Credits
+        +Subscription(SubscribeToPlanCommand, SubscriptionPlan)
+        +Validate() : bool
+        +ApplyBenefit() : void
+        +Cancel() : void
+      }
+
+      class SubscriptionPlan <<aggregate>> {
+        +SubscriptionPlanId Id
+        +string Name
+        +Money Price
+        +int Credits
+        +int DurationDays
+      }
+    }
+
+    package "Events" {
+      class PaymentCreated <<event>> {
+        +Guid PaymentId
+        +Guid OrderId
+      }
+
+      class PaymentProcessed <<event>> {
+        +Guid PaymentId
+      }
+
+      class PaymentFailed <<event>> {
+        +Guid PaymentId
+        +string? Reason
+      }
+
+      class PaymentConfirmed <<event>> {
+        +Guid PaymentId
+        +Guid OrderId
+      }
+
+      class SubscriptionActivated <<event>> {
+        +Guid SubscriptionId
+        +Guid CustomerId
+      }
+
+      class SubscriptionValidated <<event>> {
+        +Guid SubscriptionId
+      }
+
+      class BenefitApplied <<event>> {
+        +Guid SubscriptionId
+        +Guid OrderId
+      }
+
+      class SubscriptionCancelled <<event>> {
+        +Guid SubscriptionId
       }
     }
   }
 
+  package "Domain.Repositories" {
+    interface IPaymentRepository <<repository>> {
+      +FindByCustomerIdAsync(Guid, CancellationToken) : Task<IEnumerable<Payment>>
+      +FindByOrderIdAsync(Guid, CancellationToken) : Task<IEnumerable<Payment>>
+    }
+
+    interface ISubscriptionRepository <<repository>> {
+      +FindByCustomerIdAsync(Guid, CancellationToken) : Task<IEnumerable<Subscription>>
+      +FindActiveByCustomerIdAsync(Guid, CancellationToken) : Task<Subscription?>
+    }
+
+    interface ISubscriptionPlanRepository <<repository>> {
+    }
+  }
+
   package "Application" {
+
     package "Errors" {
       enum PaymentError <<error>> {
-        InsufficientFunds
-        GatewayError
+        InvalidAmount
+        PaymentNotFound
+        PaymentAlreadyProcessed
+        PaymentRejected
+        GatewayUnavailable
+        UnexpectedError
+      }
+
+      enum SubscriptionError <<error>> {
+        PlanNotFound
+        SubscriptionNotFound
+        ActiveSubscriptionExists
+        SubscriptionExpired
+        InsufficientCredits
+        UnexpectedError
       }
     }
 
     package "Services" {
       interface IPaymentCommandService <<application-service>> {
-        +Handle(ProcessPaymentCommand, CancellationToken) : Task<Result<PaymentTransaction, PaymentError>>
+        +Handle(CreatePaymentCommand, CancellationToken) : Task<Result<Payment, PaymentError>>
+        +Handle(ProcessPaymentCommand, CancellationToken) : Task<Result<Payment, PaymentError>>
+        +Handle(ConfirmPaymentCommand, CancellationToken) : Task<Result<Payment, PaymentError>>
       }
+
+      interface ISubscriptionCommandService <<application-service>> {
+        +Handle(SubscribeToPlanCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+        +Handle(ValidateSubscriptionCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+        +Handle(ApplyBenefitCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+        +Handle(CancelSubscriptionCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+      }
+
       interface IPaymentQueryService <<application-service>> {
-        +Handle(GetPaymentByIdQuery, CancellationToken) : Task<PaymentTransaction?>
+        +Handle(GetPaymentByIdQuery, CancellationToken) : Task<Payment?>
+        +Handle(GetAllPaymentsByCustomerIdQuery, CancellationToken) : Task<IEnumerable<Payment>>
+        +Handle(GetPaymentsByOrderIdQuery, CancellationToken) : Task<IEnumerable<Payment>>
+      }
+
+      interface ISubscriptionQueryService <<application-service>> {
+        +Handle(GetSubscriptionsByCustomerIdQuery, CancellationToken) : Task<IEnumerable<Subscription>>
+        +Handle(GetAllSubscriptionPlansQuery, CancellationToken) : Task<IEnumerable<SubscriptionPlan>>
+      }
+    }
+
+    package "Outbound" {
+      interface IPaymentGateway <<port>> {
+        +ChargeAsync(Money, string, CancellationToken) : Task<PaymentResult>
       }
     }
 
     package "Internal.CommandServices" {
       class PaymentCommandService <<service>> {
-        +Handle(ProcessPaymentCommand, CancellationToken) : Task<Result<PaymentTransaction, PaymentError>>
+        +Handle(CreatePaymentCommand, CancellationToken) : Task<Result<Payment, PaymentError>>
+        +Handle(ProcessPaymentCommand, CancellationToken) : Task<Result<Payment, PaymentError>>
+        +Handle(ConfirmPaymentCommand, CancellationToken) : Task<Result<Payment, PaymentError>>
+      }
+
+      class SubscriptionCommandService <<service>> {
+        +Handle(SubscribeToPlanCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+        +Handle(ValidateSubscriptionCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+        +Handle(ApplyBenefitCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
+        +Handle(CancelSubscriptionCommand, CancellationToken) : Task<Result<Subscription, SubscriptionError>>
       }
     }
 
     package "Internal.QueryServices" {
       class PaymentQueryService <<service>> {
-        +Handle(GetPaymentByIdQuery, CancellationToken) : Task<PaymentTransaction?>
+        +Handle(GetPaymentByIdQuery, CancellationToken) : Task<Payment?>
+        +Handle(GetAllPaymentsByCustomerIdQuery, CancellationToken) : Task<IEnumerable<Payment>>
+        +Handle(GetPaymentsByOrderIdQuery, CancellationToken) : Task<IEnumerable<Payment>>
+      }
+
+      class SubscriptionQueryService <<service>> {
+        +Handle(GetSubscriptionsByCustomerIdQuery, CancellationToken) : Task<IEnumerable<Subscription>>
+        +Handle(GetAllSubscriptionPlansQuery, CancellationToken) : Task<IEnumerable<SubscriptionPlan>>
+      }
+    }
+
+    package "Internal.EventHandlers" {
+      class OrderReadyEventHandler <<event-handler>> {
+        +Handle(OrderReady, CancellationToken) : Task
       }
     }
   }
 
-  package "Infrastructure.Persistence.EFC.Repositories" {
-    class PaymentRepository <<repository>> {
-      +FindByOrderIdAsync(int, CancellationToken) : Task<PaymentTransaction?>
+  package "Infrastructure" {
+
+    package "Persistence.EntityFrameworkCore.Repositories" {
+      class PaymentRepository <<repository>> {
+        +FindByCustomerIdAsync(Guid, CancellationToken) : Task<IEnumerable<Payment>>
+        +FindByOrderIdAsync(Guid, CancellationToken) : Task<IEnumerable<Payment>>
+      }
+
+      class SubscriptionRepository <<repository>> {
+        +FindByCustomerIdAsync(Guid, CancellationToken) : Task<IEnumerable<Subscription>>
+        +FindActiveByCustomerIdAsync(Guid, CancellationToken) : Task<Subscription?>
+      }
+
+      class SubscriptionPlanRepository <<repository>> {
+      }
+    }
+
+    package "ExternalServices.PaymentProvider" {
+      class PaymentProviderClient <<external-client>> {
+        +CreateChargeAsync(decimal, string, string, CancellationToken) : Task<PaymentProviderResponse>
+      }
+
+      class PaymentProviderResponse <<payload>> {
+        +string Status
+        +string TransactionId
+        +string? ErrorCode
+      }
+
+      class PaymentGatewayACL <<acl>> {
+        +ChargeAsync(Money, string, CancellationToken) : Task<PaymentResult>
+        -Translate(PaymentProviderResponse) : PaymentResult
+      }
     }
   }
 }
 
-' ==============================================================================
-' SHARED BOUNDED CONTEXT / INFRASTRUCTURE
-' ==============================================================================
-package "Shared" {
+' Subscription & Payment relationships
+PaymentsController --> IPaymentCommandService : uses
+PaymentsController --> IPaymentQueryService : uses
+PaymentsController --> PaymentResourceFromEntityAssembler : uses
+PaymentsController --> CreatePaymentCommandFromResourceAssembler : uses
+PaymentsController --> ProcessPaymentCommandFromResourceAssembler : uses
+PaymentsController --> ActionResultFromPaymentResultAssembler : uses
+SubscriptionsController --> ISubscriptionCommandService : uses
+SubscriptionsController --> ISubscriptionQueryService : uses
+SubscriptionsController --> SubscriptionResourceFromEntityAssembler : uses
+SubscriptionsController --> SubscribeToPlanCommandFromResourceAssembler : uses
+SubscriptionsController --> ActionResultFromSubscriptionResultAssembler : uses
+SubscriptionPlansController --> ISubscriptionQueryService : uses
+SubscriptionPlansController --> SubscriptionPlanResourceFromEntityAssembler : uses
 
-  package "Application.Patterns" {
-    abstract class "Result<TValue, TError>" as ResultT <<result>> {
-      +IsSuccess : bool
-      +IsFailure : bool
-      +Map<TNext>(Func<TValue, TNext>) : Result<TNext, TError>
-      +Fold<TResult>(Func<TValue, TResult>, Func<TError, TResult>) : TResult
+PaymentCommandService ..|> IPaymentCommandService : implements
+SubscriptionCommandService ..|> ISubscriptionCommandService : implements
+PaymentQueryService ..|> IPaymentQueryService : implements
+SubscriptionQueryService ..|> ISubscriptionQueryService : implements
+PaymentCommandService --> IPaymentRepository : uses
+PaymentCommandService --> IPaymentGateway : uses
+PaymentCommandService --> IUnitOfWork : uses
+SubscriptionCommandService --> ISubscriptionRepository : uses
+SubscriptionCommandService --> ISubscriptionPlanRepository : uses
+SubscriptionCommandService --> IUnitOfWork : uses
+PaymentQueryService --> IPaymentRepository : uses
+SubscriptionQueryService --> ISubscriptionRepository : uses
+SubscriptionQueryService --> ISubscriptionPlanRepository : uses
+
+OrderReadyEventHandler ..|> IEventHandler : implements
+OrderReadyEventHandler --> ISubscriptionCommandService : uses
+OrderReadyEventHandler --> IPaymentCommandService : uses
+OrderReadyEventHandler ..> OrderReady : handles
+
+IPaymentRepository --|> IBaseRepository : extends
+ISubscriptionRepository --|> IBaseRepository : extends
+ISubscriptionPlanRepository --|> IBaseRepository : extends
+PaymentRepository ..|> IPaymentRepository : implements
+SubscriptionRepository ..|> ISubscriptionRepository : implements
+SubscriptionPlanRepository ..|> ISubscriptionPlanRepository : implements
+PaymentRepository --|> BaseRepository : extends
+SubscriptionRepository --|> BaseRepository : extends
+SubscriptionPlanRepository --|> BaseRepository : extends
+
+PaymentGatewayACL ..|> IPaymentGateway : implements
+PaymentGatewayACL --> PaymentProviderClient : uses
+PaymentGatewayACL ..> PaymentProviderResponse : translates
+PaymentGatewayACL ..> PaymentResult : produces
+PaymentProviderClient --> PaymentProviderResponse : returns
+
+Payment --|> AggregateRoot : extends
+Subscription --|> AggregateRoot : extends
+SubscriptionPlan --|> AggregateRoot : extends
+Payment --> PaymentId : owns
+Payment --> Money : owns
+Payment --> PaymentStatus : has
+Subscription --> SubscriptionId : owns
+Subscription --> SubscriptionStatus : has
+Subscription ..> SubscriptionPlan : created from
+Subscription --> SubscriptionPlanId : references
+SubscriptionPlan --> SubscriptionPlanId : owns
+SubscriptionPlan --> Money : owns
+Money --> Currency : has
+PaymentId ..|> IEntityId
+SubscriptionId ..|> IEntityId
+SubscriptionPlanId ..|> IEntityId
+
+Payment ..> PaymentCreated : raises
+Payment ..> PaymentProcessed : raises
+Payment ..> PaymentFailed : raises
+Payment ..> PaymentConfirmed : raises
+Subscription ..> SubscriptionActivated : raises
+Subscription ..> SubscriptionValidated : raises
+Subscription ..> BenefitApplied : raises
+Subscription ..> SubscriptionCancelled : raises
+PaymentCreated ..|> IEvent
+PaymentProcessed ..|> IEvent
+PaymentFailed ..|> IEvent
+PaymentConfirmed ..|> IEvent
+SubscriptionActivated ..|> IEvent
+SubscriptionValidated ..|> IEvent
+BenefitApplied ..|> IEvent
+SubscriptionCancelled ..|> IEvent
+
+CreatePaymentCommand --> Money : contains
+ProcessPaymentCommand --> PaymentId : contains
+ConfirmPaymentCommand --> PaymentId : contains
+SubscribeToPlanCommand --> SubscriptionPlanId : contains
+CancelSubscriptionCommand --> SubscriptionId : contains
+GetPaymentByIdQuery --> PaymentId : contains
+
+PaymentResourceFromEntityAssembler ..> Payment : reads
+PaymentResourceFromEntityAssembler --> PaymentResource : produces
+CreatePaymentCommandFromResourceAssembler ..> CreatePaymentResource : reads
+CreatePaymentCommandFromResourceAssembler --> CreatePaymentCommand : produces
+ProcessPaymentCommandFromResourceAssembler ..> ProcessPaymentResource : reads
+ProcessPaymentCommandFromResourceAssembler --> ProcessPaymentCommand : produces
+SubscriptionResourceFromEntityAssembler ..> Subscription : reads
+SubscriptionResourceFromEntityAssembler --> SubscriptionResource : produces
+SubscribeToPlanCommandFromResourceAssembler ..> SubscribeToPlanResource : reads
+SubscribeToPlanCommandFromResourceAssembler --> SubscribeToPlanCommand : produces
+SubscriptionPlanResourceFromEntityAssembler ..> SubscriptionPlan : reads
+SubscriptionPlanResourceFromEntityAssembler --> SubscriptionPlanResource : produces
+ActionResultFromPaymentResultAssembler ..> ResultT : maps
+ActionResultFromPaymentResultAssembler ..> PaymentError : branches
+ActionResultFromPaymentResultAssembler ..> ProblemDetailsFactory : uses
+ActionResultFromSubscriptionResultAssembler ..> ResultT : maps
+ActionResultFromSubscriptionResultAssembler ..> SubscriptionError : branches
+ActionResultFromSubscriptionResultAssembler ..> ProblemDetailsFactory : uses
+
+AppDbContext --> Payment : maps
+AppDbContext --> Subscription : maps
+AppDbContext --> SubscriptionPlan : maps
+
+note right of PaymentGatewayACL
+  Anticorruption layer:
+  traduce la respuesta del proveedor
+  de pagos a PaymentResult
+end note
+
+' =====================================================================
+' Tracking & Notifications
+' =====================================================================
+package "TrackingNotifications" {
+
+  package "Interfaces.REST" {
+    class TrackingController {
+      +GetTrackingByOrderId(Guid, CancellationToken) : Task<ActionResult>
+    }
+
+    class NotificationsController {
+      +GetNotificationsByRecipientId(Guid, CancellationToken) : Task<ActionResult>
+    }
+
+    package "Resources" {
+      class TrackingResource <<resource>> {
+        +Guid Id
+        +Guid OrderId
+        +string CurrentStatus
+        +IEnumerable<StatusHistoryEntryResource> History
+      }
+
+      class StatusHistoryEntryResource <<resource>> {
+        +string Status
+        +DateTimeOffset OccurredAt
+      }
+
+      class NotificationResource <<resource>> {
+        +Guid Id
+        +Guid RecipientId
+        +Guid OrderId
+        +string Channel
+        +string Message
+        +string Status
+        +DateTimeOffset CreatedAt
+      }
+    }
+
+    package "Transform" {
+      class TrackingResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(Tracking) : TrackingResource
+      }
+
+      class NotificationResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(Notification) : NotificationResource
+      }
     }
   }
 
   package "Domain.Model" {
-    interface IAuditableEntity <<auditable>> {
-      +DateTimeOffset? CreatedAt
-      +DateTimeOffset? UpdatedAt
+
+    package "ValueObjects" {
+      class TrackingId <<value-object>> {
+        +Guid Value
+        +TrackingId(Guid)
+      }
+
+      class NotificationId <<value-object>> {
+        +Guid Value
+        +NotificationId(Guid)
+      }
+
+      enum NotificationChannel <<enum>> {
+        EMAIL
+        IN_APP
+      }
+
+      enum NotificationStatus <<enum>> {
+        PENDING
+        SENT
+        READ
+        FAILED
+      }
+    }
+
+    package "Commands" {
+      class RecordStatusChangeCommand <<command>> {
+        +Guid OrderId
+        +string Status
+        +DateTimeOffset OccurredAt
+      }
+
+      class SendNotificationCommand <<command>> {
+        +Guid RecipientId
+        +Guid OrderId
+        +NotificationChannel Channel
+        +string Message
+      }
+    }
+
+    package "Queries" {
+      class GetTrackingByOrderIdQuery <<query>> {
+        +Guid OrderId
+      }
+
+      class GetAllNotificationsByRecipientIdQuery <<query>> {
+        +Guid RecipientId
+      }
+    }
+
+    package "Aggregates" {
+      class Tracking <<aggregate>> {
+        +TrackingId Id
+        +Guid OrderId
+        +string CurrentStatus
+        +IReadOnlyCollection<StatusHistoryEntry> History
+        +Tracking(Guid)
+        +RecordStatusChange(RecordStatusChangeCommand) : void
+      }
+
+      class Notification <<aggregate>> {
+        +NotificationId Id
+        +Guid RecipientId
+        +Guid OrderId
+        +NotificationChannel Channel
+        +string Message
+        +NotificationStatus Status
+        +Notification(SendNotificationCommand)
+        +MarkAsSent() : void
+        +MarkAsFailed() : void
+      }
+    }
+
+    package "Entities" {
+      class StatusHistoryEntry <<entity>> {
+        +Guid Id
+        +Guid TrackingId
+        +string Status
+        +DateTimeOffset OccurredAt
+      }
+    }
+
+    package "Events" {
+      class StatusHistoryRecorded <<event>> {
+        +Guid TrackingId
+        +Guid OrderId
+        +string Status
+      }
+
+      class NotificationSent <<event>> {
+        +Guid NotificationId
+        +Guid RecipientId
+      }
     }
   }
 
   package "Domain.Repositories" {
-    interface IBaseRepository<TEntity> <<repository>> {
-      +AddAsync(TEntity, CancellationToken) : Task
-      +FindByIdAsync(int, CancellationToken) : Task<TEntity?>
-      +Update(TEntity) : void
-      +Remove(TEntity) : void
-      +ListAsync(CancellationToken) : Task<IEnumerable<TEntity>>
+    interface ITrackingRepository <<repository>> {
+      +FindByOrderIdAsync(Guid, CancellationToken) : Task<Tracking?>
     }
 
-    interface IUnitOfWork <<unit-of-work>> {
-      +CompleteAsync(CancellationToken) : Task
+    interface INotificationRepository <<repository>> {
+      +FindByRecipientIdAsync(Guid, CancellationToken) : Task<IEnumerable<Notification>>
     }
   }
 
@@ -929,22 +2628,61 @@ package "Shared" {
       +tracking_notifications
       +payments
     }
-  }
 
-  package "Infrastructure.Persistence.EFC.Repositories" {
-    class BaseRepository<TEntity> <<repository>> {
-      +AddAsync(TEntity, CancellationToken) : Task
-      +FindByIdAsync(int, CancellationToken) : Task<TEntity?>
-      +Update(TEntity) : void
-      +Remove(TEntity) : void
-      +ListAsync(CancellationToken) : Task<IEnumerable<TEntity>>
+    package "Services" {
+      interface ITrackingCommandService <<application-service>> {
+        +Handle(RecordStatusChangeCommand, CancellationToken) : Task<Result<Tracking, TrackingError>>
+      }
+
+      interface INotificationCommandService <<application-service>> {
+        +Handle(SendNotificationCommand, CancellationToken) : Task<Result<Notification, NotificationError>>
+      }
+
+      interface ITrackingQueryService <<application-service>> {
+        +Handle(GetTrackingByOrderIdQuery, CancellationToken) : Task<Tracking?>
+      }
+
+      interface INotificationQueryService <<application-service>> {
+        +Handle(GetAllNotificationsByRecipientIdQuery, CancellationToken) : Task<IEnumerable<Notification>>
+      }
     }
 
-    class UnitOfWork <<repository>> {
-      +CompleteAsync(CancellationToken) : Task
+    package "Outbound" {
+      interface IEmailService <<port>> {
+        +SendAsync(string, string, string, CancellationToken) : Task
+      }
+    }
+
+    package "Internal.CommandServices" {
+      class TrackingCommandService <<service>> {
+        +Handle(RecordStatusChangeCommand, CancellationToken) : Task<Result<Tracking, TrackingError>>
+      }
+
+      class NotificationCommandService <<service>> {
+        +Handle(SendNotificationCommand, CancellationToken) : Task<Result<Notification, NotificationError>>
+      }
+    }
+
+    package "Internal.QueryServices" {
+      class TrackingQueryService <<service>> {
+        +Handle(GetTrackingByOrderIdQuery, CancellationToken) : Task<Tracking?>
+      }
+
+      class NotificationQueryService <<service>> {
+        +Handle(GetAllNotificationsByRecipientIdQuery, CancellationToken) : Task<IEnumerable<Notification>>
+      }
+    }
+
+    package "Internal.EventHandlers" {
+      class StageAdvancedEventHandler <<event-handler>> {
+        +Handle(StageAdvanced, CancellationToken) : Task
+      }
+
+      class StatusHistoryRecordedEventHandler <<event-handler>> {
+        +Handle(StatusHistoryRecorded, CancellationToken) : Task
+      }
     }
   }
-}
 
 ' Controllers to Application Services
 OrdersController --> IOrderCommandService : uses
