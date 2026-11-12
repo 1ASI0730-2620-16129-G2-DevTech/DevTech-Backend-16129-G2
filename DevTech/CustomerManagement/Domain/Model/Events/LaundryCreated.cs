@@ -1,3 +1,5 @@
-﻿namespace DevTech.CustomerManagement.Domain.Model.Events;
+﻿using DevTech.Shared.Domain.Model.Events;
 
-public record LaundryCreated(Guid LaundryId);
+namespace DevTech.CustomerManagement.Domain.Model.Events;
+
+public record LaundryCreated(Guid LaundryId) : IEvent;
