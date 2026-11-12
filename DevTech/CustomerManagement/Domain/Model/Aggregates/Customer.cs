@@ -23,25 +23,23 @@ public partial class Customer : AggregateRoot
             command.PhoneNumber,
             command.Address);
 
-        if (!Enum.IsDefined(typeof(DocumentType), command.DocumentType))
-        {
+        if (string.IsNullOrWhiteSpace(command.Document.Value))
             throw new ArgumentException(
-                "Invalid document type.",
-                nameof(command.DocumentType));
-        }
+                "Document is required.", nameof(command.Document));
 
-        // Id se hereda de AggregateRoot<CustomerId>.
+        Document = command.Document;
+        
         Id = command.CustomerId;
         Name = command.Name;
         PhoneNumber = command.PhoneNumber;
-        DocumentType = command.DocumentType;
+        Document = command.Document;
         Address = command.Address;
     }
     
     public CustomerId Id { get; private set; }
     public PersonName Name { get; private set; }
     public PhoneNumber PhoneNumber { get; private set; }
-    public DocumentType DocumentType { get; private set; }
+    public DocumentNumber Document { get; private set; } = default!;
     public StreetAddress Address { get; private set; }
 
     public void UpdateProfile(

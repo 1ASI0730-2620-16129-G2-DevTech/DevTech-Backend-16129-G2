@@ -3,8 +3,8 @@
 namespace DevTech.CustomerManagement.Domain.Model.Commands;
 
 public record CreateCustomerCommand(
-    CustomerId CustomerId, 
-    PersonName Name, 
-    PhoneNumber PhoneNumber, 
-    DocumentType DocumentType, 
+    CustomerId CustomerId,
+    PersonName Name,
+    PhoneNumber PhoneNumber,
+    DocumentNumber Document,
     StreetAddress Address);
