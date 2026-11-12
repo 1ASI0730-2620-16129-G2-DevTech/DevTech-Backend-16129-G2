@@ -1,15 +1,19 @@
 namespace DevTech.Shared.Domain.Repositories;
 
 /// <summary>
-///     Base repository interface for all repositories
+///     Base repository interface for all repositories, with a configurable key type.
 /// </summary>
 /// <remarks>
-///     This interface is used to define the basic CRUD operations for all repositories
+///     Use this interface when the aggregate identifier is not an <see cref="int" />
+///     (for example, a strongly-typed Guid identifier).
 /// </remarks>
 /// <typeparam name="TEntity">
 ///     The entity type for the repository
 /// </typeparam>
-public interface IBaseRepository<TEntity>
+/// <typeparam name="TKey">
+///     The type of the entity identifier. It must match the CLR type of the entity <c>Id</c> property
+/// </typeparam>
+public interface IBaseRepository<TEntity, in TKey>
 {
     /// <summary>
     ///     Add an entity to the repository
@@ -31,7 +35,7 @@ public interface IBaseRepository<TEntity>
     /// <returns>
     ///     The entity if found, otherwise null
     /// </returns>
-    Task<TEntity?> FindByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<TEntity?> FindByIdAsync(TKey id, CancellationToken cancellationToken = default);
 
     /// <summary>
     ///     Find an entity by its id without change tracking
@@ -43,7 +47,7 @@ public interface IBaseRepository<TEntity>
     /// <returns>
     ///     The entity if found, otherwise null
     /// </returns>
-    Task<TEntity?> FindByIdAsNoTrackingAsync(int id, CancellationToken cancellationToken = default);
+    Task<TEntity?> FindByIdAsNoTrackingAsync(TKey id, CancellationToken cancellationToken = default);
 
     void Update(TEntity entity);
 
@@ -72,4 +76,18 @@ public interface IBaseRepository<TEntity>
     ///     A list of all entities in the repository
     /// </returns>
     Task<IEnumerable<TEntity>> ListAsNoTrackingAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+///     Base repository interface for all repositories whose identifier is an <see cref="int" />
+/// </summary>
+/// <remarks>
+///     This interface is used to define the basic CRUD operations for all repositories.
+///     It keeps working as before for the existing repositories.
+/// </remarks>
+/// <typeparam name="TEntity">
+///     The entity type for the repository
+/// </typeparam>
+public interface IBaseRepository<TEntity> : IBaseRepository<TEntity, int>
+{
 }

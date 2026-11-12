@@ -225,64 +225,84 @@ end note
 package "IAM" {
 
   package "Interfaces.REST" {
-    class AuthenticationController {
-      +SignUp(SignUpResource, CancellationToken) : Task<ActionResult>
-      +SignIn(SignInResource, CancellationToken) : Task<ActionResult>
+    class LaundryOrdersController {
+      +GetLaundryOrderById(int, CancellationToken) : Task<ActionResult>
+      +GetAllLaundryOrders(CancellationToken) : Task<ActionResult>
+      +ClassifyLaundryOrder(int, CancellationToken) : Task<ActionResult>
+      +AssignWashingCycle(int, AssignWashingCycleResource, CancellationToken) : Task<ActionResult>
+      +AssignResource(int, AssignResourceResource, CancellationToken) : Task<ActionResult>
+      +AdvanceStage(int, CancellationToken) : Task<ActionResult>
+      +PrioritizeLaundryOrder(int, PrioritizeLaundryOrderResource, CancellationToken) : Task<ActionResult>
     }
 
-    class UsersController {
-      +GetUserById(Guid, CancellationToken) : Task<ActionResult>
+    class LaundryResourcesController {
+      +GetResourcesByLaundryId(int, CancellationToken) : Task<ActionResult>
+      +ReleaseResource(int, CancellationToken) : Task<ActionResult>
+    }
+
+    class WashingCyclesController {
+      +GetAllWashingCycles(CancellationToken) : Task<ActionResult>
     }
 
     package "Resources" {
-      class SignUpResource <<resource>> {
-        +string Email
-        +string Password
-        +string Role
+      class LaundryOrderResource <<resource>> {
+        +int Id
+        +int OrderId
+        +string CurrentStage
+        +string Priority
+        +int? WashingCycleId
+        +int? ResourceId
+        +DateTimeOffset? ExpectedCompletion
+        +bool IsReady
       }
-
-      class SignInResource <<resource>> {
-        +string Email
-        +string Password
+      class AssignWashingCycleResource <<resource>> {
+        +int WashingCycleId
       }
-
-      class UserResource <<resource>> {
-        +Guid Id
-        +string Email
-        +string Role
+      class AssignResourceResource <<resource>> {
+        +int ResourceId
       }
-
-      class AuthenticatedUserResource <<resource>> {
-        +Guid Id
-        +string Email
-        +string Role
-        +string Token
+      class PrioritizeLaundryOrderResource <<resource>> {
+        +string Priority
+      }
+      class LaundryResourceResource <<resource>> {
+        +int Id
+        +int LaundryId
+        +string Name
+        +string Status
+        +int Capacity
+      }
+      class WashingCycleResource <<resource>> {
+        +int Id
+        +string Name
+        +int DurationMinutes
+        +string CompatibleType
       }
     }
 
     package "Transform" {
-      class SignUpCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(SignUpResource) : SignUpCommand
+      class LaundryOrderResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(LaundryOrder) : LaundryOrderResource
       }
-
-      class SignInCommandFromResourceAssembler <<assembler>> {
-        +ToCommandFromResource(SignInResource) : SignInCommand
+      class LaundryResourceResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(LaundryResource) : LaundryResourceResource
       }
-
-      class UserResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(User) : UserResource
+      class WashingCycleResourceFromEntityAssembler <<assembler>> {
+        +ToResourceFromEntity(WashingCycle) : WashingCycleResource
       }
-
-      class AuthenticatedUserResourceFromEntityAssembler <<assembler>> {
-        +ToResourceFromEntity(User, string) : AuthenticatedUserResource
+      class AssignWashingCycleCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(int, AssignWashingCycleResource) : AssignWashingCycleCommand
       }
-
-      class ActionResultFromSignUpResultAssembler <<assembler>> {
-        +ToActionResultFromSignUpResult(Result<User, SignUpError>, ControllerBase) : ActionResult
+      class AssignResourceCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(int, AssignResourceResource) : AssignResourceCommand
       }
-
-      class ActionResultFromSignInResultAssembler <<assembler>> {
-        +ToActionResultFromSignInResult(Result<AuthenticatedUser, SignInError>, ControllerBase) : ActionResult
+      class PrioritizeLaundryOrderCommandFromResourceAssembler <<assembler>> {
+        +ToCommandFromResource(int, PrioritizeLaundryOrderResource) : PrioritizeLaundryOrderCommand
+      }
+      class ActionResultFromLaundryOrderResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryOrderResult(Result<LaundryOrder, LaundryOrderError>, ControllerBase) : ActionResult
+      }
+      class ActionResultFromLaundryResourceResultAssembler <<assembler>> {
+        +ToActionResultFromLaundryResourceResult(Result<LaundryResource, LaundryResourceError>, ControllerBase) : ActionResult
       }
     }
   }
@@ -290,68 +310,129 @@ package "IAM" {
   package "Domain.Model" {
 
     package "ValueObjects" {
-      class UserId <<value-object>> {
-        +Guid Value
-        +UserId(Guid)
+      class LaundryOrderId <<value-object>> {
+        +int Value
+        +LaundryOrderId(int)
       }
-
-      class EmailAddress <<value-object>> {
-        +string Value
-        +EmailAddress(string)
+      class LaundryResourceId <<value-object>> {
+        +int Value
+        +LaundryResourceId(int)
       }
-
-      class PasswordHash <<value-object>> {
-        +string Value
-        +PasswordHash(string)
+      class WashingCycleId <<value-object>> {
+        +int Value
+        +WashingCycleId(int)
       }
-
-      enum UserRole <<enum>> {
-        Customer
-        LaundryProvider
+      class LaundryId <<value-object>> {
+        +int Value
+        +LaundryId(int)
+      }
+      enum EProcessingStage <<value-object>> {
+        Reception
+        Classification
+        Washing
+        DryingIroning
+        Packaging
+        Ready
+      }
+      enum EPriority <<value-object>> {
+        Normal
+        Vip
+      }
+      enum EResourceStatus <<value-object>> {
+        Available
+        Busy
+        Maintenance
       }
     }
 
     package "Commands" {
-      class SignUpCommand <<command>> {
-        +EmailAddress Email
-        +string Password
-        +UserRole Role
+      class ReceiveLaundryOrderCommand <<command>> {
+        +int OrderId
+        +EPriority Priority
       }
-
-      class SignInCommand <<command>> {
-        +EmailAddress Email
-        +string Password
+      class ClassifyLaundryOrderCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+      }
+      class AssignWashingCycleCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +WashingCycleId WashingCycleId
+      }
+      class AssignResourceCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +LaundryResourceId ResourceId
+      }
+      class AdvanceStageCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+      }
+      class PrioritizeLaundryOrderCommand <<command>> {
+        +LaundryOrderId LaundryOrderId
+        +EPriority Priority
+      }
+      class ReleaseResourceCommand <<command>> {
+        +LaundryResourceId ResourceId
+      }
+      class SyncResourceStatusCommand <<command>> {
+        +LaundryResourceId ResourceId
+        +EResourceStatus Status
       }
     }
 
     package "Queries" {
-      class GetUserByIdQuery <<query>> {
-        +UserId Id
+      class GetLaundryOrderByIdQuery <<query>> {
+        +LaundryOrderId LaundryOrderId
       }
-
-      class GetUserByEmailQuery <<query>> {
-        +EmailAddress Email
+      class GetAllLaundryOrdersQuery <<query>> {
+      }
+      class GetAllLaundryResourcesByLaundryIdQuery <<query>> {
+        +LaundryId LaundryId
+      }
+      class GetAllWashingCyclesQuery <<query>> {
       }
     }
 
     package "Aggregates" {
-      class User <<aggregate>> {
-        +UserId Id
-        +EmailAddress Email
-        +PasswordHash PasswordHash
-        +UserRole Role
-        +User(SignUpCommand, PasswordHash)
-        +Authenticate() : void
+      class LaundryOrder <<aggregate>> {
+        +LaundryOrderId Id
+        +int OrderId
+        +EProcessingStage CurrentStage
+        +EPriority Priority
+        +int? WashingCycleId
+        +int? ResourceId
+        +DateTimeOffset? ExpectedCompletion
+        +bool IsReady
+        +LaundryOrder(LaundryOrderId, int, EProcessingStage, EPriority, int?, int?, DateTimeOffset?, bool)
+        +LaundryOrder(int, EPriority)
+        +LaundryOrder(ReceiveLaundryOrderCommand)
+        +Classify() : void
+        +AssignWashingCycle(WashingCycleId) : void
+        +AssignResource(LaundryResourceId) : void
+        +AdvanceStage() : void
+        +Prioritize(EPriority) : void
+      }
+
+      class LaundryResource <<aggregate>> {
+        +LaundryResourceId Id
+        +LaundryId LaundryId
+        +string Name
+        +EResourceStatus Status
+        +int Capacity
+        +bool IsAvailable
+        +LaundryResource(LaundryResourceId, LaundryId, string, EResourceStatus, int)
+        +LaundryResource(LaundryId, string, int)
+        +LaundryResource(int, string, int)
+        +Assign() : void
+        +Release() : void
+        +ApplyMonitoredStatus(EResourceStatus) : void
       }
     }
 
-    package "Events" {
-      class UserRegistered <<event>> {
-        +Guid UserId
-      }
-
-      class UserAuthenticated <<event>> {
-        +Guid UserId
+    package "Entities" {
+      class WashingCycle <<entity>> {
+        +WashingCycleId Id
+        +string Name
+        +int DurationMinutes
+        +string CompatibleType
+        +IsCompatible(string) : bool
       }
     }
   }
@@ -366,79 +447,100 @@ package "IAM" {
   package "Application" {
 
     package "Errors" {
-      enum SignUpError <<error>> {
-        InvalidEmail
-        EmailAlreadyRegistered
-        InvalidRole
+      enum LaundryOrderError <<error>> {
+        LaundryOrderNotFound
+        OrderAlreadyReceived
+        OrderAlreadyReady
+        WashingCycleAndResourceRequired
+        WashingCycleNotFound
+        ResourceNotFound
+        InvalidStageTransition
         UnexpectedError
       }
-
-      enum SignInError <<error>> {
-        InvalidCredentials
+      enum LaundryResourceError <<error>> {
+        ResourceNotFound
+        ResourceNotAvailable
+        ResourceNotBusy
+        InvalidResourceStatus
         UnexpectedError
-      }
-    }
-
-    package "Outbound" {
-      interface IHashingService <<port>> {
-        +Hash(string) : PasswordHash
-        +Verify(string, PasswordHash) : bool
-      }
-
-      interface ITokenService <<port>> {
-        +GenerateToken(User) : string
       }
     }
 
     package "Services" {
-      interface IUserCommandService <<application-service>> {
-        +Handle(SignUpCommand, CancellationToken) : Task<Result<User, SignUpError>>
-        +Handle(SignInCommand, CancellationToken) : Task<Result<AuthenticatedUser, SignInError>>
+      interface ILaundryOrderCommandService <<application-service>> {
+        +Handle(ReceiveLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(ClassifyLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignWashingCycleCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignResourceCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AdvanceStageCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(PrioritizeLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
       }
+      interface ILaundryResourceCommandService <<application-service>> {
+        +Handle(ReleaseResourceCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+        +Handle(SyncResourceStatusCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+      }
+      interface ILaundryOperationsQueryService <<application-service>> {
+        +Handle(GetLaundryOrderByIdQuery, CancellationToken) : Task<LaundryOrder?>
+        +Handle(GetAllLaundryOrdersQuery, CancellationToken) : Task<IEnumerable<LaundryOrder>>
+        +Handle(GetAllLaundryResourcesByLaundryIdQuery, CancellationToken) : Task<IEnumerable<LaundryResource>>
+        +Handle(GetAllWashingCyclesQuery, CancellationToken) : Task<IEnumerable<WashingCycle>>
+      }
+    }
 
-      interface IUserQueryService <<application-service>> {
-        +Handle(GetUserByIdQuery, CancellationToken) : Task<User?>
-        +Handle(GetUserByEmailQuery, CancellationToken) : Task<User?>
+    package "Outbound" {
+      interface IResourceMonitoringFacade <<port>> {
+        +GetResourceStatusAsync(LaundryResourceId, CancellationToken) : Task<EResourceStatus>
       }
     }
 
     package "Internal.CommandServices" {
-      class UserCommandService <<service>> {
-        +Handle(SignUpCommand, CancellationToken) : Task<Result<User, SignUpError>>
-        +Handle(SignInCommand, CancellationToken) : Task<Result<AuthenticatedUser, SignInError>>
+      class LaundryOrderCommandService <<service>> {
+        +Handle(ReceiveLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(ClassifyLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignWashingCycleCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AssignResourceCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(AdvanceStageCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
+        +Handle(PrioritizeLaundryOrderCommand, CancellationToken) : Task<Result<LaundryOrder, LaundryOrderError>>
       }
-
-      class AuthenticatedUser <<record>> {
-        +User User
-        +string Token
+      class LaundryResourceCommandService <<service>> {
+        +Handle(ReleaseResourceCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
+        +Handle(SyncResourceStatusCommand, CancellationToken) : Task<Result<LaundryResource, LaundryResourceError>>
       }
     }
 
     package "Internal.QueryServices" {
-      class UserQueryService <<service>> {
-        +Handle(GetUserByIdQuery, CancellationToken) : Task<User?>
-        +Handle(GetUserByEmailQuery, CancellationToken) : Task<User?>
+      class LaundryOperationsQueryService <<service>> {
+        +Handle(GetLaundryOrderByIdQuery, CancellationToken) : Task<LaundryOrder?>
+        +Handle(GetAllLaundryOrdersQuery, CancellationToken) : Task<IEnumerable<LaundryOrder>>
+        +Handle(GetAllLaundryResourcesByLaundryIdQuery, CancellationToken) : Task<IEnumerable<LaundryResource>>
+        +Handle(GetAllWashingCyclesQuery, CancellationToken) : Task<IEnumerable<WashingCycle>>
       }
     }
   }
 
-  package "Infrastructure" {
-    package "Persistence.EntityFrameworkCore.Repositories" {
-      class UserRepository <<repository>> {
-        +FindByEmailAsync(EmailAddress, CancellationToken) : Task<User?>
-        +ExistsByEmailAsync(EmailAddress, CancellationToken) : Task<bool>
-      }
+  package "Infrastructure.Persistence.EFC.Repositories" {
+    class LaundryOrderRepository <<repository>> {
+      +FindByOrderIdAsync(int, CancellationToken) : Task<LaundryOrder?>
     }
+    class LaundryResourceRepository <<repository>> {
+      +FindByLaundryIdAsync(LaundryId, CancellationToken) : Task<IEnumerable<LaundryResource>>
+    }
+    class WashingCycleRepository <<repository>> {
+    }
+  }
 
-    package "Security" {
-      class HashingService <<service>> {
-        +Hash(string) : PasswordHash
-        +Verify(string, PasswordHash) : bool
-      }
-
-      class TokenService <<service>> {
-        +GenerateToken(User) : string
-      }
+  package "Infrastructure.ExternalServices.IoT" {
+    class IotGatewayClient <<external-client>> {
+      +GetTelemetryAsync(int, CancellationToken) : Task<SensorTelemetryPayload>
+    }
+    class SensorTelemetryPayload <<payload>> {
+      +int ResourceId
+      +string State
+      +DateTimeOffset ReadAt
+    }
+    class ResourceMonitoringACL <<acl>> {
+      +GetResourceStatusAsync(LaundryResourceId, CancellationToken) : Task<EResourceStatus>
+      -Translate(SensorTelemetryPayload) : EResourceStatus
     }
   }
 }
@@ -2512,20 +2614,19 @@ package "TrackingNotifications" {
     }
   }
 
-  package "Application" {
-
-    package "Errors" {
-      enum TrackingError <<error>> {
-        TrackingNotFound
-        InvalidStatus
-        UnexpectedError
-      }
-
-      enum NotificationError <<error>> {
-        RecipientNotFound
-        DeliveryFailed
-        UnexpectedError
-      }
+  package "Infrastructure.Persistence.EFC.Configuration" {
+    class AppDbContext <<db-context>> {
+      +OnConfiguring(DbContextOptionsBuilder) : void
+      +OnModelCreating(ModelBuilder) : void
+      --
+      +orders
+      +laundry_orders
+      +laundry_resources
+      +washing_cycles
+      +customers
+      +pickups_deliveries
+      +tracking_notifications
+      +payments
     }
 
     package "Services" {
@@ -2583,93 +2684,84 @@ package "TrackingNotifications" {
     }
   }
 
-  package "Infrastructure" {
+' Controllers to Application Services
+OrdersController --> IOrderCommandService : uses
+OrdersController --> IOrderQueryService : uses
+LaundryOrdersController --> ILaundryOrderCommandService : uses
+LaundryOrdersController --> ILaundryOperationsQueryService : uses
+LaundryResourcesController --> ILaundryResourceCommandService : uses
+LaundryResourcesController --> ILaundryOperationsQueryService : uses
+WashingCyclesController --> ILaundryOperationsQueryService : uses
+CustomersController --> ICustomerCommandService : uses
+CustomersController --> ICustomerQueryService : uses
+PickupsDeliveriesController --> IPickupDeliveryCommandService : uses
+PickupsDeliveriesController --> IPickupDeliveryQueryService : uses
+TrackingNotificationsController --> ITrackingNotificationCommandService : uses
+TrackingNotificationsController --> ITrackingNotificationQueryService : uses
+PaymentsController --> IPaymentCommandService : uses
+PaymentsController --> IPaymentQueryService : uses
 
-    package "Persistence.EntityFrameworkCore.Repositories" {
-      class TrackingRepository <<repository>> {
-        +FindByOrderIdAsync(Guid, CancellationToken) : Task<Tracking?>
-      }
+' Service Implementations
+OrderCommandService ..|> IOrderCommandService
+OrderQueryService ..|> IOrderQueryService
+LaundryOrderCommandService ..|> ILaundryOrderCommandService
+LaundryResourceCommandService ..|> ILaundryResourceCommandService
+LaundryOperationsQueryService ..|> ILaundryOperationsQueryService
+CustomerCommandService ..|> ICustomerCommandService
+CustomerQueryService ..|> ICustomerQueryService
+PickupDeliveryCommandService ..|> IPickupDeliveryCommandService
+PickupDeliveryQueryService ..|> IPickupDeliveryQueryService
+TrackingNotificationCommandService ..|> ITrackingNotificationCommandService
+TrackingNotificationQueryService ..|> ITrackingNotificationQueryService
+PaymentCommandService ..|> IPaymentCommandService
+PaymentQueryService ..|> IPaymentQueryService
 
-      class NotificationRepository <<repository>> {
-        +FindByRecipientIdAsync(Guid, CancellationToken) : Task<IEnumerable<Notification>>
-      }
-    }
+' Laundry Operations: anticorruption layer (IoT monitoring)
+LaundryResourceCommandService --> IResourceMonitoringFacade : uses
+ResourceMonitoringACL ..|> IResourceMonitoringFacade
+ResourceMonitoringACL --> IotGatewayClient : uses
+ResourceMonitoringACL ..> SensorTelemetryPayload : translates
+IotGatewayClient --> SensorTelemetryPayload : returns
 
-    package "ExternalServices.Email" {
-      class EmailService <<external-client>> {
-        +SendAsync(string, string, string, CancellationToken) : Task
-      }
-    }
-  }
-}
+' Aggregates Value Objects ownership
+Order --> CustomerIdVO : owns
+Order --> OrderStatus : owns
+LaundryOrder --> LaundryOrderId : owns
+LaundryOrder --> EProcessingStage : owns
+LaundryOrder --> EPriority : owns
+LaundryResource --> LaundryResourceId : owns
+LaundryResource --> LaundryId : references
+LaundryResource --> EResourceStatus : owns
+WashingCycle --> WashingCycleId : owns
+Customer --> EmailAddress : owns
+Customer --> PhoneNumber : owns
+PickupDelivery --> DeliveryAddress : owns
+PickupDelivery --> ServiceType : owns
+PickupDelivery --> PickupDeliveryStatus : owns
+TrackingNotification --> NotificationType : owns
+PaymentTransaction --> TransactionId : owns
+PaymentTransaction --> PaymentStatus : owns
 
-' Tracking & Notifications relationships
-TrackingController --> ITrackingQueryService : uses
-TrackingController --> TrackingResourceFromEntityAssembler : uses
-NotificationsController --> INotificationQueryService : uses
-NotificationsController --> NotificationResourceFromEntityAssembler : uses
+' Repositories & Base Infrastructure
+OrderRepository --|> BaseRepository
+LaundryOrderRepository --|> BaseRepository
+LaundryResourceRepository --|> BaseRepository
+WashingCycleRepository --|> BaseRepository
+CustomerRepository --|> BaseRepository
+PickupDeliveryRepository --|> BaseRepository
+TrackingNotificationRepository --|> BaseRepository
+PaymentRepository --|> BaseRepository
+BaseRepository ..|> IBaseRepository
+UnitOfWork ..|> IUnitOfWork
 
-TrackingCommandService ..|> ITrackingCommandService : implements
-NotificationCommandService ..|> INotificationCommandService : implements
-TrackingQueryService ..|> ITrackingQueryService : implements
-NotificationQueryService ..|> INotificationQueryService : implements
-TrackingCommandService --> ITrackingRepository : uses
-TrackingCommandService --> IUnitOfWork : uses
-NotificationCommandService --> INotificationRepository : uses
-NotificationCommandService --> IEmailService : uses
-NotificationCommandService --> IUnitOfWork : uses
-TrackingQueryService --> ITrackingRepository : uses
-NotificationQueryService --> INotificationRepository : uses
-
-StageAdvancedEventHandler ..|> IEventHandler : implements
-StageAdvancedEventHandler --> ITrackingCommandService : uses
-StageAdvancedEventHandler ..> StageAdvanced : handles
-StatusHistoryRecordedEventHandler ..|> IEventHandler : implements
-StatusHistoryRecordedEventHandler --> INotificationCommandService : uses
-StatusHistoryRecordedEventHandler ..> StatusHistoryRecorded : handles
-
-ITrackingRepository --|> IBaseRepository : extends
-INotificationRepository --|> IBaseRepository : extends
-TrackingRepository ..|> ITrackingRepository : implements
-NotificationRepository ..|> INotificationRepository : implements
-TrackingRepository --|> BaseRepository : extends
-NotificationRepository --|> BaseRepository : extends
-EmailService ..|> IEmailService : implements
-
-Tracking --|> AggregateRoot : extends
-Notification --|> AggregateRoot : extends
-Notification ..|> IAuditableEntity : implements
-Tracking --> TrackingId : owns
-Tracking *-- StatusHistoryEntry : history
-Notification --> NotificationId : owns
-Notification --> NotificationChannel : has
-Notification --> NotificationStatus : has
-TrackingId ..|> IEntityId
-NotificationId ..|> IEntityId
-
-Tracking ..> StatusHistoryRecorded : raises
-Notification ..> NotificationSent : raises
-StatusHistoryRecorded ..|> IEvent
-NotificationSent ..|> IEvent
-
-SendNotificationCommand --> NotificationChannel : contains
-
-TrackingResourceFromEntityAssembler ..> Tracking : reads
-TrackingResourceFromEntityAssembler --> TrackingResource : produces
-TrackingResource *-- StatusHistoryEntryResource : history
-NotificationResourceFromEntityAssembler ..> Notification : reads
-NotificationResourceFromEntityAssembler --> NotificationResource : produces
-
-AppDbContext --> Tracking : maps
-AppDbContext --> StatusHistoryEntry : maps
-AppDbContext --> Notification : maps
-
-note right of StageAdvancedEventHandler
-  Politicas entre Bounded Contexts:
-  - StageAdvanced (Laundry Operations)
-    -> Registrar cambio de estado (Tracking)
-  - StatusHistoryRecorded
-    -> Enviar notificacion al usuario (recipientId)
-end note
+' DbContext Entity Mappings
+AppDbContext --> Order : maps
+AppDbContext --> LaundryOrder : maps
+AppDbContext --> LaundryResource : maps
+AppDbContext --> WashingCycle : maps
+AppDbContext --> Customer : maps
+AppDbContext --> PickupDelivery : maps
+AppDbContext --> TrackingNotification : maps
+AppDbContext --> PaymentTransaction : maps
 
 @enduml

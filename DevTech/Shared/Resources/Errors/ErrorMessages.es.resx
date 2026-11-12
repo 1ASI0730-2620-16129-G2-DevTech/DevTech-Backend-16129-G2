@@ -65,4 +65,25 @@
     <data name="PublishingError.InternalServerError" xml:space="preserve">
     <value>Ocurrió un error interno inesperado en Publicación.</value>
   </data>
+  <data name="LaundryOperations.InvalidOrder" xml:space="preserve"><value>Se requieren identificadores válidos del pedido y la lavandería, y una prioridad válida.</value></data>
+  <data name="LaundryOperations.LaundryOrderNotFound" xml:space="preserve"><value>No se encontró la orden de lavandería.</value></data>
+  <data name="LaundryOperations.LaundryResourceNotFound" xml:space="preserve"><value>No se encontró el recurso de lavandería.</value></data>
+  <data name="LaundryOperations.WashingCycleNotFound" xml:space="preserve"><value>No se encontró el ciclo de lavado.</value></data>
+  <data name="LaundryOperations.OrderAlreadyReceived" xml:space="preserve"><value>El pedido ya fue recibido en lavandería.</value></data>
+  <data name="LaundryOperations.OrderAlreadyReady" xml:space="preserve"><value>La orden ya está lista y no se puede modificar.</value></data>
+  <data name="LaundryOperations.WashingCycleAndResourceRequired" xml:space="preserve"><value>Debes asignar un ciclo y un recurso antes de iniciar el lavado.</value></data>
+  <data name="LaundryOperations.ResourceNotAvailable" xml:space="preserve"><value>El recurso de lavandería no está disponible.</value></data>
+  <data name="LaundryOperations.ResourceNotBusy" xml:space="preserve"><value>Solo se puede liberar manualmente un recurso ocupado sin reserva activa.</value></data>
+  <data name="LaundryOperations.InvalidStageTransition" xml:space="preserve"><value>No se permite la transición de etapa solicitada.</value></data>
+  <data name="LaundryOperations.InvalidResourceStatus" xml:space="preserve"><value>El estado recibido es inválido o eliminaría una reserva activa.</value></data>
+  <data name="LaundryOperations.InvalidPriority" xml:space="preserve"><value>La prioridad no es válida.</value></data>
+  <data name="LaundryOperations.InvalidCycle" xml:space="preserve"><value>Se requiere un identificador válido del ciclo.</value></data>
+  <data name="LaundryOperations.InvalidResource" xml:space="preserve"><value>Se requiere un identificador válido del recurso.</value></data>
+  <data name="LaundryOperations.ResourceAlreadyAssigned" xml:space="preserve"><value>La orden ya tiene un recurso asignado.</value></data>
+  <data name="LaundryOperations.OtherLaundry" xml:space="preserve"><value>El recurso pertenece a otra lavandería.</value></data>
+  <data name="LaundryOperations.InvalidReservation" xml:space="preserve"><value>La reserva del recurso es inconsistente.</value></data>
+  <data name="LaundryOperations.LaundryOrderCreationFailed" xml:space="preserve"><value>Ocurrió un error al crear la orden de lavandería.</value></data>
+  <data name="ConcurrentUpdate" xml:space="preserve"><value>Los datos cambiaron. Vuelve a consultar e inténtalo de nuevo.</value></data>
+  <data name="UniqueConflict" xml:space="preserve"><value>Ya existe un registro con ese identificador único.</value></data>
+  <data name="InvalidInput" xml:space="preserve"><value>Los datos de entrada no son válidos.</value></data>
 </root>
