@@ -21,8 +21,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="CustomerManagement\Application\" />
-      <Folder Include="CustomerManagement\Domain\Repositories\" />
+      <Folder Include="CustomerManagement\Application\CommandServices\" />
+      <Folder Include="CustomerManagement\Application\Internal\" />
+      <Folder Include="CustomerManagement\Application\QueryServices\" />
       <Folder Include="CustomerManagement\Infrastructure\" />
       <Folder Include="CustomerManagement\Interfaces\" />
       <Folder Include="LaundryOperations\Application\Internal\" />

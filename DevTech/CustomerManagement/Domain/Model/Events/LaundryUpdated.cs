@@ -1,5 +1,0 @@
-﻿using DevTech.Shared.Domain.Model.Events;
-
-namespace DevTech.CustomerManagement.Domain.Model.Events;
-
-public record LaundryUpdated(Guid LaundryId) : IEvent;
