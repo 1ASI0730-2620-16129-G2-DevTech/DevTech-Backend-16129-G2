@@ -1,8 +1,10 @@
+using DevTech.OrderManagement.Application.ACL;
 using DevTech.OrderManagement.Application.Internal.CommandServices;
 using DevTech.OrderManagement.Application.Internal.QueryServices;
 using DevTech.OrderManagement.Application.Services;
 using DevTech.OrderManagement.Domain.Repositories;
 using DevTech.OrderManagement.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
+using DevTech.OrderManagement.Interfaces.ACL;
 using DevTech.OrderManagement.Interfaces.REST.Transform;
 
 namespace DevTech.OrderManagement.Infrastructure.Configuration;
@@ -13,7 +15,7 @@ namespace DevTech.OrderManagement.Infrastructure.Configuration;
 public static class OrderManagementServiceCollectionExtensions
 {
     /// <summary>
-    ///     Registers repositories, application services and REST assemblers of Order Management.
+    ///     Registers repositories, application services, REST assemblers and the context facade of Order Management.
     ///     Event handlers (e.g. <c>PaymentConfirmedEventHandler</c>) are discovered by the mediator assembly scan.
     /// </summary>
     public static IServiceCollection AddOrderManagement(this IServiceCollection services)
@@ -22,6 +24,7 @@ public static class OrderManagementServiceCollectionExtensions
         services.AddScoped<IOrderCommandService, OrderCommandService>();
         services.AddScoped<IOrderQueryService, OrderQueryService>();
         services.AddScoped<ActionResultFromOrderResultAssembler>();
+        services.AddScoped<IOrdersContextFacade, OrdersContextFacade>();
         return services;
     }
 }
