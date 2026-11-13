@@ -6,7 +6,7 @@
 public enum SchedulePickupDeliveryError
 {
     /// <summary>
-    ///     The provided order identifier is zero or negative.
+    ///     The provided order identifier is empty.
     /// </summary>
     InvalidOrderId,
 
@@ -24,6 +24,16 @@ public enum SchedulePickupDeliveryError
     ///     A pickup or delivery of the same type already exists for the order.
     /// </summary>
     DuplicatePickupDelivery,
+
+    /// <summary>
+    ///     The order does not exist in the Order Management bounded context.
+    /// </summary>
+    OrderNotFound,
+
+    /// <summary>
+    ///     A delivery was requested but the order was created to be picked up by the customer at the laundry.
+    /// </summary>
+    OrderDeliveryMethodMismatch,
 
     /// <summary>
     ///     A delivery was requested but the order is not ready yet.

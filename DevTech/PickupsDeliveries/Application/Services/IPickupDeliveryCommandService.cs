@@ -18,8 +18,8 @@ public interface IPickupDeliveryCommandService
     ///     Handle the schedule pickup or delivery command.
     /// </summary>
     /// <remarks>
-    ///     This method validates the command, checks that the order does not already have a service of the same type
-    ///     and, for a delivery, checks that the order is ready.
+    ///     This method validates the command, checks that the order exists and does not already have a service
+    ///     of the same type and, for a delivery, checks that the order is for home delivery and is ready.
     ///     If every rule is fulfilled, it creates a new pickup or delivery and adds it to the database.
     /// </remarks>
     /// <param name="command">SchedulePickupDeliveryCommand command</param>
