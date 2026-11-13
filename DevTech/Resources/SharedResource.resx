@@ -1,0 +1,138 @@
+﻿<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <data name="UnexpectedServerError" xml:space="preserve">
+        <value>Unexpected server error</value>
+    </data>
+    <data name="UnexpectedErrorProcessingRequest" xml:space="preserve">
+        <value>An unexpected error occurred while processing your request.</value>
+    </data>
+    <data name="PickupDeliveryDuplicated" xml:space="preserve">
+        <value>This order already has a pickup or delivery of the same type.</value>
+    </data>
+    <data name="PickupDeliveryOrderNotReady" xml:space="preserve">
+        <value>A delivery can only be scheduled when the order is ready.</value>
+    </data>
+    <data name="InvalidPickupDeliveryOrderId" xml:space="preserve">
+        <value>The order identifier is required.</value>
+    </data>
+    <data name="PickupDeliveryOrderNotFound" xml:space="preserve">
+        <value>The order does not exist.</value>
+    </data>
+    <data name="PickupDeliveryOrderDeliveryMethodMismatch" xml:space="preserve">
+        <value>A delivery can only be scheduled for an order created with home delivery.</value>
+    </data>
+    <data name="InvalidPickupDeliveryAddress" xml:space="preserve">
+        <value>The address is required and must have a street and a city.</value>
+    </data>
+    <data name="InvalidPickupDeliveryServiceType" xml:space="preserve">
+        <value>The service type must be Pickup or Delivery.</value>
+    </data>
+    <data name="UnexpectedErrorSchedulingPickupDelivery" xml:space="preserve">
+        <value>An unexpected error occurred while scheduling the pickup or delivery.</value>
+    </data>
+    <data name="InvalidPickupDeliveryRequest" xml:space="preserve">
+        <value>The pickup or delivery request contains invalid values.</value>
+    </data>
+    <data name="InvalidPickupDeliveryQuery" xml:space="preserve">
+        <value>The query parameters for pickups and deliveries contain invalid values.</value>
+    </data>
+    <data name="RequiredStreet" xml:space="preserve">
+        <value>Street is required.</value>
+    </data>
+    <data name="RequiredCity" xml:space="preserve">
+        <value>City is required.</value>
+    </data>
+    <data name="RequiredServiceType" xml:space="preserve">
+        <value>Service type is required.</value>
+    </data>
+    <data name="SchedulePickupDeliverySummary" xml:space="preserve">
+        <value>Schedule a pickup or delivery</value>
+    </data>
+    <data name="SchedulePickupDeliveryDescription" xml:space="preserve">
+        <value>Schedule the pickup or the delivery of an existing order. An order can have only one pickup and one delivery. A delivery can only be scheduled when the order was created with home delivery and is ready.</value>
+    </data>
+    <data name="SchedulePickupDeliveryCreated" xml:space="preserve">
+        <value>The pickup or delivery was scheduled.</value>
+    </data>
+    <data name="SchedulePickupDeliveryBadRequest" xml:space="preserve">
+        <value>The request payload is invalid.</value>
+    </data>
+    <data name="SchedulePickupDeliveryNotFound" xml:space="preserve">
+        <value>The order does not exist.</value>
+    </data>
+    <data name="SchedulePickupDeliveryConflict" xml:space="preserve">
+        <value>The order already has a pickup or delivery of the same type.</value>
+    </data>
+    <data name="SchedulePickupDeliveryUnprocessableEntity" xml:space="preserve">
+        <value>The order was not created with home delivery or is not ready yet.</value>
+    </data>
+    <data name="SchedulePickupDeliveryServerError" xml:space="preserve">
+        <value>An unexpected server error occurred.</value>
+    </data>
+    <data name="GetPickupDeliveryQuerySummary" xml:space="preserve">
+        <value>Get pickups and deliveries by query</value>
+    </data>
+    <data name="GetPickupDeliveryQueryDescription" xml:space="preserve">
+        <value>Provide only orderId to list the pickups and deliveries of the order (an empty list if none exist). Add type (Pickup or Delivery) to retrieve one of them.</value>
+    </data>
+    <data name="GetPickupDeliveryQuerySuccess" xml:space="preserve">
+        <value>The matching pickup, delivery, or list was found.</value>
+    </data>
+    <data name="GetPickupDeliveryQueryBadRequest" xml:space="preserve">
+        <value>A required query parameter is missing or invalid.</value>
+    </data>
+    <data name="GetPickupDeliveryQueryNotFound" xml:space="preserve">
+        <value>No pickup or delivery matches the supplied orderId and type.</value>
+    </data>
+    <data name="GetPickupDeliveryByIdSummary" xml:space="preserve">
+        <value>Get a pickup or delivery by ID</value>
+    </data>
+    <data name="GetPickupDeliveryByIdDescription" xml:space="preserve">
+        <value>Retrieve a pickup or delivery using its identifier.</value>
+    </data>
+    <data name="GetPickupDeliveryByIdSuccess" xml:space="preserve">
+        <value>The pickup or delivery was found.</value>
+    </data>
+    <data name="GetPickupDeliveryByIdNotFound" xml:space="preserve">
+        <value>The pickup or delivery was not found.</value>
+    </data>
+    <data name="SchedulePickupDeliverySchema" xml:space="preserve">
+        <value>Request payload for scheduling a pickup or delivery.</value>
+    </data>
+    <data name="PickupDeliverySchema" xml:space="preserve">
+        <value>A pickup or delivery returned by the API.</value>
+    </data>
+    <data name="PickupDeliveryId" xml:space="preserve">
+        <value>The server-generated pickup or delivery identifier.</value>
+    </data>
+    <data name="PickupDeliveryOrderId" xml:space="preserve">
+        <value>The identifier of the related order in Order Management.</value>
+    </data>
+    <data name="PickupDeliveryStreet" xml:space="preserve">
+        <value>The street of the address.</value>
+    </data>
+    <data name="PickupDeliveryCity" xml:space="preserve">
+        <value>The city of the address.</value>
+    </data>
+    <data name="PickupDeliveryType" xml:space="preserve">
+        <value>The type of service: Pickup or Delivery.</value>
+    </data>
+    <data name="PickupDeliveryStatus" xml:space="preserve">
+        <value>The current status: Scheduled, InTransit, Completed or Failed.</value>
+    </data>
+</root>
