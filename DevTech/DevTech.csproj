@@ -23,6 +23,7 @@
     <ItemGroup>
       <Folder Include="LaundryOperations\Application\Internal\" />
       <Folder Include="LaundryOperations\Domain\Model\Commands\" />
+      <Folder Include="OrderManagement\Application\" />
     </ItemGroup>
 
 </Project>
