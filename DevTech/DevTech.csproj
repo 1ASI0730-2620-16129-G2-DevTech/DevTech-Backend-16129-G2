@@ -24,6 +24,7 @@
       <Folder Include="LaundryOperations\Application\Internal\" />
       <Folder Include="LaundryOperations\Domain\Model\Commands\" />
       <Folder Include="OrderManagement\Application\" />
+      <Folder Include="OrderManagement\Domain\Model\" />
     </ItemGroup>
 
 </Project>
