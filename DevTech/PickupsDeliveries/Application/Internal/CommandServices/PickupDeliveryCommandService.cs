@@ -17,15 +17,17 @@ namespace DevTech.PickupsDeliveries.Application.Internal.CommandServices;
 /// <remarks>
 ///     It checks the business rules in this order:
 ///     <list type="number">
-///         <item><description>The order identifier is greater than zero.</description></item>
+///         <item><description>The order identifier is not empty.</description></item>
 ///         <item><description>The address is present.</description></item>
 ///         <item><description>The service type is Pickup or Delivery.</description></item>
 ///         <item><description>The order does not already have a service of the same type.</description></item>
-///         <item><description>For a delivery, the order is ready (asked to Order Management through the outbound port).</description></item>
+///         <item><description>The order exists in Order Management.</description></item>
+///         <item><description>For a delivery, the order was created with the home delivery method.</description></item>
+///         <item><description>For a delivery, the order is ready.</description></item>
 ///     </list>
 /// </remarks>
 /// <param name="pickupDeliveryRepository">The pickup and delivery repository</param>
-/// <param name="orderStatusFacade">The outbound port to ask Order Management about the order status</param>
+/// <param name="orderStatusFacade">The outbound port to ask Order Management about the order</param>
 /// <param name="unitOfWork">The unit of work to save the changes</param>
 /// <param name="logger">Logger for diagnostics and error reporting</param>
 public class PickupDeliveryCommandService(
@@ -40,10 +42,9 @@ public class PickupDeliveryCommandService(
         SchedulePickupDeliveryCommand command,
         CancellationToken cancellationToken = default)
     {
-        if (command.OrderId <= 0)
+        if (command.OrderId == Guid.Empty)
         {
-            logger.LogWarning("Invalid order identifier when scheduling a pickup or delivery: {OrderId}",
-                command.OrderId);
+            logger.LogWarning("Empty order identifier when scheduling a pickup or delivery");
             return new Result<PickupDelivery, SchedulePickupDeliveryError>.Failure(
                 SchedulePickupDeliveryError.InvalidOrderId);
         }
@@ -76,10 +77,27 @@ public class PickupDeliveryCommandService(
 
         try
         {
+            var orderStatus = await orderStatusFacade.FetchOrderStatusAsync(command.OrderId, cancellationToken);
+            if (orderStatus is null)
+            {
+                logger.LogWarning("Scheduling attempt for an order that does not exist. OrderId: {OrderId}",
+                    command.OrderId);
+                return new Result<PickupDelivery, SchedulePickupDeliveryError>.Failure(
+                    SchedulePickupDeliveryError.OrderNotFound);
+            }
+
             if (command.Type == ServiceType.Delivery)
             {
-                var isOrderReady = await orderStatusFacade.IsOrderReadyAsync(command.OrderId, cancellationToken);
-                if (!isOrderReady)
+                if (!orderStatus.IsForHomeDelivery)
+                {
+                    logger.LogWarning(
+                        "Delivery scheduling attempt for an order without home delivery. OrderId: {OrderId}",
+                        command.OrderId);
+                    return new Result<PickupDelivery, SchedulePickupDeliveryError>.Failure(
+                        SchedulePickupDeliveryError.OrderDeliveryMethodMismatch);
+                }
+
+                if (!orderStatus.IsReady)
                 {
                     logger.LogWarning("Delivery scheduling attempt for an order that is not ready. OrderId: {OrderId}",
                         command.OrderId);
