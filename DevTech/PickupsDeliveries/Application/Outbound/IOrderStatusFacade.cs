@@ -1,20 +1,20 @@
 ﻿namespace DevTech.PickupsDeliveries.Application.Outbound;
 
 /// <summary>
-///     Outbound port to ask the Order Management bounded context about the status of an order.
+///     Outbound port to ask the Order Management bounded context about an order.
 /// </summary>
 /// <remarks>
-///     The application layer depends only on this contract.
-///     The infrastructure layer implements it with an anti-corruption layer,
+///     The command service depends only on this contract.
+///     It is implemented by an anti-corruption layer that calls the facade offered by Order Management,
 ///     so the Order Management model never leaks into the Pickups and Deliveries model.
 /// </remarks>
 public interface IOrderStatusFacade
 {
     /// <summary>
-    ///     Checks whether an order is ready to be delivered.
+    ///     Gets the information about an order that the scheduling rules need.
     /// </summary>
     /// <param name="orderId">The identifier of the order.</param>
     /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
-    /// <returns>True when the order exists and its status is Ready; otherwise, false.</returns>
-    Task<bool> IsOrderReadyAsync(int orderId, CancellationToken cancellationToken = default);
+    /// <returns>The order status snapshot, or null when the order does not exist.</returns>
+    Task<OrderStatusSnapshot?> FetchOrderStatusAsync(Guid orderId, CancellationToken cancellationToken = default);
 }
