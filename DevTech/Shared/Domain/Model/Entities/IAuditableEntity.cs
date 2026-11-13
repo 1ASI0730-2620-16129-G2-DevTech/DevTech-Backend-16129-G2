@@ -1,4 +1,4 @@
-namespace DevTech.Shared.Domain.Model.Entities;
+﻿namespace DevTech.Shared.Domain.Model.Entities;
 
 /// <summary>
 ///     Marks an entity as carrying audit timestamps managed by the persistence layer.

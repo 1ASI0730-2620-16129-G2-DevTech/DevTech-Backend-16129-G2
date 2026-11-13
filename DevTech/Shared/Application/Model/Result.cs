@@ -1,6 +1,6 @@
-using DomainErrorModel = Acme.Center.Platform.Shared.Domain.Model.Errors.Error;
+﻿using DomainErrorModel = DevTech.Shared.Domain.Model.Errors.Error;
 
-namespace Acme.Center.Platform.Shared.Application.Model;
+namespace DevTech.Shared.Application.Model;
 
 /// <summary>
 ///     Generic Result class for Command Handlers in the Application Layer.
@@ -73,7 +73,7 @@ public class Result : Result<object>
         return new Result(false, error.Message, null, error);
     }
 
-    public static Result Failure(DomainErrorModel error, Enum errorEnum)
+    public new static Result Failure(DomainErrorModel error, Enum errorEnum)
     {
         return new Result(false, error.Message, errorEnum, error);
     }
