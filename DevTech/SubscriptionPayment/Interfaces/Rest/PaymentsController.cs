@@ -1,5 +1,5 @@
 using System.Net.Mime;
-using Acme.Center.Platform.Shared.Interfaces.Rest.ProblemDetails;
+using DevTech.Shared.Interfaces.Rest.ProblemDetails;
 using DevTech.SubscriptionPayment.Application.CommandServices;
 using DevTech.SubscriptionPayment.Application.QueryServices;
 using DevTech.SubscriptionPayment.Domain.Model.Commands;

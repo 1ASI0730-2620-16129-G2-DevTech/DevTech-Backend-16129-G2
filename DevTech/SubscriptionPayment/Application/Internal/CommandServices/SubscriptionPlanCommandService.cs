@@ -1,4 +1,4 @@
-using Acme.Center.Platform.Shared.Application.Model;
+using DevTech.Shared.Application.Model;
 using DevTech.SubscriptionPayment.Application.CommandServices;
 using DevTech.SubscriptionPayment.Domain.Model.Aggregates;
 using DevTech.SubscriptionPayment.Domain.Model.Commands;

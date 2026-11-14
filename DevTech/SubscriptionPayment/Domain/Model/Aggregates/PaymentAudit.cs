@@ -1,4 +1,4 @@
-using Acme.Center.Platform.Shared.Domain.Model.Entities;
+using DevTech.Shared.Domain.Model.Entities;
 
 namespace DevTech.SubscriptionPayment.Domain.Model.Aggregates;
 

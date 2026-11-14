@@ -1,58 +1,33 @@
-using DevTech.Shared.Domain.Model.Aggregates;
 using Cortex.Mediator;
 using Cortex.Mediator.Notifications;
+using DevTech.Shared.Domain.Model.Aggregates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-
 namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
 
-/// <summary>
-///     EF Core interceptor that automatically dispatches domain events recorded on aggregate roots
-///     after changes are successfully saved to the database.
-/// </summary>
-public sealed class DispatchDomainEventsInterceptor(IMediator mediator) : SaveChangesInterceptor
+// In-process integration only. Use an outbox if durable cross-service delivery is needed.
+public sealed class DispatchDomainEventsInterceptor(IMediator mediator,
+    ILogger<DispatchDomainEventsInterceptor> logger) : SaveChangesInterceptor
 {
-    /// <inheritdoc />
-    public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
+    public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData,
+        int result, CancellationToken cancellationToken = default)
     {
-        DispatchDomainEvents(eventData.Context).GetAwaiter().GetResult();
-        return base.SavedChanges(eventData, result);
-    }
-
-    /// <inheritdoc />
-    public override async ValueTask<int> SavedChangesAsync(
-        SaveChangesCompletedEventData eventData,
-        int result,
-        CancellationToken cancellationToken = default)
-    {
-        await DispatchDomainEvents(eventData.Context, cancellationToken);
-        return await base.SavedChangesAsync(eventData, result, cancellationToken);
-    }
-
-    private async Task DispatchDomainEvents(DbContext? context, CancellationToken cancellationToken = default)
-    {
-        if (context is null) return;
-
-        var aggregateRoots = context.ChangeTracker
-            .Entries<IAggregateRoot>()
-            .Where(e => e.Entity.DomainEvents.Any())
-            .Select(e => e.Entity)
-            .ToList();
-
-        var domainEvents = aggregateRoots
-            .SelectMany<IAggregateRoot, INotification>(e => e.DomainEvents)
-            .ToList();
-
-        foreach (var aggregateRoot in aggregateRoots)
-        {
-            aggregateRoot.ClearDomainEvents();
-        }
-
-        foreach (var domainEvent in domainEvents)
+        if (eventData.Context is null) return result;
+        var roots = eventData.Context.ChangeTracker.Entries<IAggregateRoot>().Select(x => x.Entity).ToList();
+        var events = roots.SelectMany(x => x.DomainEvents).Cast<INotification>().ToList();
+        foreach (var root in roots) root.ClearDomainEvents();
+        foreach (var notification in events)
         {
             // Publish using the runtime (concrete) event type; publishing it as INotification would not
             // reach the IEventHandler<TEvent> registered for that specific event.
-            await mediator.PublishAsync((dynamic)domainEvent, cancellationToken);
+            try { await mediator.PublishAsync((dynamic)notification, CancellationToken.None); }
+            catch (Exception exception)
+            {
+                // Database commit already succeeded: never tell the caller to retry the mutation.
+                logger.LogError(exception, "Post-commit event {EventType} failed. No automatic retry configured.", notification.GetType().Name);
+            }
         }
+        return result;
     }
 }
+

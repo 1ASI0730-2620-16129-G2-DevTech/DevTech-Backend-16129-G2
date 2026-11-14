@@ -65,4 +65,25 @@
     <data name="PublishingError.InternalServerError" xml:space="preserve">
     <value>An unexpected internal error occurred in Publishing.</value>
   </data>
+  <data name="LaundryOperations.InvalidOrder" xml:space="preserve"><value>Valid order, laundry and priority are required.</value></data>
+  <data name="LaundryOperations.LaundryOrderNotFound" xml:space="preserve"><value>The specified laundry order was not found.</value></data>
+  <data name="LaundryOperations.LaundryResourceNotFound" xml:space="preserve"><value>The specified laundry resource was not found.</value></data>
+  <data name="LaundryOperations.WashingCycleNotFound" xml:space="preserve"><value>The specified washing cycle was not found.</value></data>
+  <data name="LaundryOperations.OrderAlreadyReceived" xml:space="preserve"><value>A laundry order already exists for the specified order.</value></data>
+  <data name="LaundryOperations.OrderAlreadyReady" xml:space="preserve"><value>The laundry order is ready and cannot be modified.</value></data>
+  <data name="LaundryOperations.WashingCycleAndResourceRequired" xml:space="preserve"><value>A washing cycle and resource are required before washing.</value></data>
+  <data name="LaundryOperations.ResourceNotAvailable" xml:space="preserve"><value>The laundry resource is not available.</value></data>
+  <data name="LaundryOperations.ResourceNotBusy" xml:space="preserve"><value>Only an unreserved busy resource can be manually released.</value></data>
+  <data name="LaundryOperations.InvalidStageTransition" xml:space="preserve"><value>The order cannot move to the requested stage.</value></data>
+  <data name="LaundryOperations.InvalidResourceStatus" xml:space="preserve"><value>The monitored status is invalid or would clear an active reservation.</value></data>
+  <data name="LaundryOperations.InvalidPriority" xml:space="preserve"><value>Invalid priority.</value></data>
+  <data name="LaundryOperations.InvalidCycle" xml:space="preserve"><value>Cycle id is required.</value></data>
+  <data name="LaundryOperations.InvalidResource" xml:space="preserve"><value>Resource id is required.</value></data>
+  <data name="LaundryOperations.ResourceAlreadyAssigned" xml:space="preserve"><value>A resource is already assigned.</value></data>
+  <data name="LaundryOperations.OtherLaundry" xml:space="preserve"><value>Resource belongs to another laundry.</value></data>
+  <data name="LaundryOperations.InvalidReservation" xml:space="preserve"><value>The resource reservation is inconsistent.</value></data>
+  <data name="LaundryOperations.LaundryOrderCreationFailed" xml:space="preserve"><value>An error occurred while creating the laundry order.</value></data>
+  <data name="ConcurrentUpdate" xml:space="preserve"><value>The data changed. Reload and retry.</value></data>
+  <data name="UniqueConflict" xml:space="preserve"><value>A unique record already exists.</value></data>
+  <data name="InvalidInput" xml:space="preserve"><value>Invalid input.</value></data>
 </root>

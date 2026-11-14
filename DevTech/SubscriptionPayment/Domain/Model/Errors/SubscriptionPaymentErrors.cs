@@ -1,4 +1,4 @@
-using Acme.Center.Platform.Shared.Domain.Model.Errors;
+using DevTech.Shared.Domain.Model.Errors;
 
 namespace DevTech.SubscriptionPayment.Domain.Model.Errors;
 

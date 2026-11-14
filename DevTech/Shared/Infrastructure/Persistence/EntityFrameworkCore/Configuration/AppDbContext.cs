@@ -1,57 +1,35 @@
-//using Acme.Center.Platform.Iam.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
-//using Acme.Center.Platform.Profiles.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
-//using Acme.Center.Platform.Publishing.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
+﻿using DevTech.LaundryOperations.Domain.Model.Aggregates;
+using DevTech.LaundryOperations.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
+using DevTech.OrderManagement.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
+using DevTech.PickupsDeliveries.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
-using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
-using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
-using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
 using DevTech.SubscriptionPayment.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using Microsoft.EntityFrameworkCore;
-
 namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
 
-/// <summary>
-///     Application database context for the Learning Center Platform
-/// </summary>
-/// <param name="options">
-///     The options for the database context
-/// </param>
-public class AppDbContext(DbContextOptions options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    /// <inheritdoc />
     protected override void OnConfiguring(DbContextOptionsBuilder builder)
     {
-        // Apply audit timestamp interceptor for all IAuditableEntity implementations
-        builder.AddInterceptors(new AuditableEntityInterceptor());
+        builder.AddInterceptors(new DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors.AuditableEntityInterceptor());
         base.OnConfiguring(builder);
     }
-
-    /// <summary>
-    ///     On creating the database model
-    /// </summary>
-    /// <remarks>
-    ///     This method is used to create the database model for the application.
-    /// </remarks>
-    /// <param name="builder">
-    ///     The model builder for the database context
-    /// </param>
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        // Publishing Context
-        //builder.ApplyPublishingConfiguration();
-
-        // Profiles Context
-        //builder.ApplyProfilesConfiguration();
-
-        // IAM Context
-        //builder.ApplyIamConfiguration();
-
-        // Subscription & Payment Context
+        builder.ApplyLaundryOperationsConfiguration();
+        builder.ApplyOrderManagementConfiguration();
+        builder.ApplyPickupsDeliveriesConfiguration();
         builder.ApplySubscriptionPaymentConfiguration();
-
-        // General Naming Convention for the database objects
         builder.UseSnakeCaseNamingConvention();
     }
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries<LaundryOrder>().Where(x => x.State == EntityState.Modified))
+            entry.Entity.RefreshVersion();
+        foreach (var entry in ChangeTracker.Entries<LaundryResource>().Where(x => x.State == EntityState.Modified))
+            entry.Entity.RefreshVersion();
+        return base.SaveChangesAsync(cancellationToken);
+    }
 }
+

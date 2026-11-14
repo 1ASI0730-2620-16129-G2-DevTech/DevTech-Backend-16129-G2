@@ -1,6 +1,6 @@
-using Acme.Center.Platform.Shared.Application.Model;
-using Acme.Center.Platform.Shared.Domain.Model.Errors;
-using Acme.Center.Platform.Shared.Interfaces.Rest.ProblemDetails;
+using DevTech.Shared.Application.Model;
+using DevTech.Shared.Domain.Model.Errors;
+using DevTech.Shared.Interfaces.Rest.ProblemDetails;
 using DevTech.SubscriptionPayment.Domain.Model.Errors;
 using DevTech.SubscriptionPayment.Resources;
 using Microsoft.AspNetCore.Mvc;
@@ -42,11 +42,12 @@ public static class SubscriptionPaymentActionResultAssembler
         IStringLocalizer<SubscriptionPaymentMessages> localizer,
         ProblemDetailsFactory problemDetailsFactory)
     {
+        // The detail is the text of this context in the language of the request.
+        var localizedError = domainError with { Message = localizer[domainError.Code].Value };
         var actionResult = problemDetailsFactory.CreateProblemDetails(
             controller,
             ToStatusCodeFromSubscriptionPaymentError(error),
-            error,
-            localizer[domainError.Code].Value);
+            localizedError);
 
         // The shared factory only knows the titles of ErrorMessages; this context keeps its own texts.
         if (actionResult is ObjectResult { Value: Microsoft.AspNetCore.Mvc.ProblemDetails problemDetails })

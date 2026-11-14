@@ -1,145 +1,169 @@
-using Acme.Center.Platform.Resources.Errors;
-using Acme.Center.Platform.Resources.Shared;
-using Acme.Center.Platform.Shared.Infrastructure.Interfaces.AspNetCore.Configuration;
-using Acme.Center.Platform.Shared.Interfaces.Rest.ProblemDetails;
 using Cortex.Mediator.DependencyInjection;
+using DevTech.LaundryOperations.Application.Acl;
+using DevTech.LaundryOperations.Application.CommandServices;
+using DevTech.LaundryOperations.Application.Internal.CommandServices;
+using DevTech.LaundryOperations.Application.Internal.QueryServices;
+using DevTech.LaundryOperations.Application.QueryServices;
+using DevTech.LaundryOperations.Domain.Repositories;
+using DevTech.LaundryOperations.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
+using DevTech.LaundryOperations.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
+using DevTech.LaundryOperations.Interfaces.Acl;
+using DevTech.OrderManagement.Infrastructure.Configuration;
+using DevTech.PickupsDeliveries.Infrastructure.Configuration;
+using DevTech.PickupsDeliveries.Interfaces.Rest.Transform;
+using DevTech.Resources;
 using DevTech.Shared.Domain.Repositories;
+using DevTech.Shared.Infrastructure.Interfaces.AspNetCore.Configuration;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
-using DevTech.SubscriptionPayment.Application.CommandServices;
-using DevTech.SubscriptionPayment.Application.Internal.CommandServices;
-using DevTech.SubscriptionPayment.Application.Internal.OutboundServices;
-using DevTech.SubscriptionPayment.Application.Internal.QueryServices;
-using DevTech.SubscriptionPayment.Application.QueryServices;
-using DevTech.SubscriptionPayment.Domain.Repositories;
-using DevTech.SubscriptionPayment.Infrastructure.PaymentGateway;
-using DevTech.SubscriptionPayment.Infrastructure.PaymentGateway.External;
-using DevTech.SubscriptionPayment.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
+using DevTech.Shared.Infrastructure.Pipeline.Middleware.Components;
+using DevTech.Shared.Interfaces.Rest.ProblemDetails;
+using DevTech.SubscriptionPayment.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
+// ---------------------------------------------------------------------------------------------
+// Web API
+// ---------------------------------------------------------------------------------------------
 
+// Lower case URLs and kebab case controller routes (for example: api/v1/laundry-orders)
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 builder.Services.AddControllers(options => options.Conventions.Add(new KebabCaseRouteNamingConvention()))
-    .AddDataAnnotationsLocalization();
+    .AddDataAnnotationsLocalization(options =>
+        options.DataAnnotationLocalizerProvider = (_, factory) => factory.Create(typeof(SharedResource)));
 
-// Add ProblemDetails services
-builder.Services.AddProblemDetails();
-
-// Add OpenAPI/Scalar documentation services
-builder.Services.AddOpenApi();
-
-// Add Database Connection
-
-// Configure Database Context and route EF logs through the app logger pipeline.
-builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
-{
-    var connectionStringTemplate = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrWhiteSpace(connectionStringTemplate))
-        throw new InvalidOperationException("Database connection string is not set in the configuration.");
-
-    var connectionString = Environment.ExpandEnvironmentVariables(connectionStringTemplate);
-    if (string.IsNullOrWhiteSpace(connectionString))
-        throw new InvalidOperationException("Database connection string is not set in the configuration.");
-
-    // Azure SQL Database (SQL Server). EnableRetryOnFailure retries transient errors, for example
-    // while the serverless database is resuming after an automatic pause.
-    options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure())
-        .UseLoggerFactory(serviceProvider.GetRequiredService<ILoggerFactory>())
-        .AddInterceptors(serviceProvider.GetRequiredService<DispatchDomainEventsInterceptor>())
-        .EnableDetailedErrors();
-
-    if (builder.Environment.IsDevelopment())
-        options.EnableSensitiveDataLogging();
-});
-
+// Localization: Shared/Resources/Errors/ErrorMessages(.es).resx and Resources/SharedResource(.en/.es).resx
 builder.Services.AddLocalization();
 
-// Explicitly register IStringLocalizer for ErrorMessages and Commons
-builder.Services.AddSingleton<IStringLocalizer<ErrorMessages>, StringLocalizer<ErrorMessages>>();
+// Localized RFC 7807 problem details for unhandled exceptions
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddScoped<ProblemDetailsFactory>();
 
-builder.Services.AddSingleton<IStringLocalizer<CommonMessages>, StringLocalizer<CommonMessages>>();
+// OpenAPI document (with the localized descriptions of the Pickups and Deliveries endpoints)
+builder.Services.AddOpenApi(options =>
+{
+    options.AddOperationTransformer(LocalizedOpenApiAssembler.TransformOperationAsync);
+    options.AddSchemaTransformer(LocalizedOpenApiAssembler.TransformSchemaAsync);
+});
 
-// Register the custom ProblemDetailsFactory
-builder.Services.AddSingleton<ProblemDetailsFactory>();
-
-// Add CORS Policy
+// CORS: lets the Web App (frontend) consume this API from another origin
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAllPolicy",
         policy => policy.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader());
+            .AllowAnyMethod()
+            .AllowAnyHeader());
 });
 
-// Dependency Injection
+// Clock used by the domain rules that depend on the current date and time
+builder.Services.AddSingleton(TimeProvider.System);
 
-// Subscription & Payment Bounded Context
-builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
-builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+// ---------------------------------------------------------------------------------------------
+// Shared kernel
+// ---------------------------------------------------------------------------------------------
 
-builder.Services.AddScoped<ISubscriptionPlanCommandService, SubscriptionPlanCommandService>();
-builder.Services.AddScoped<ISubscriptionPlanQueryService, SubscriptionPlanQueryService>();
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                       ?? throw new InvalidOperationException(
+                           "Connection string 'DefaultConnection' was not found. Add it to appsettings.Development.json.");
 
-builder.Services.AddScoped<ISubscriptionCommandService, SubscriptionCommandService>();
-builder.Services.AddScoped<ISubscriptionQueryService, SubscriptionQueryService>();
-
-builder.Services.AddScoped<IPaymentCommandService, PaymentCommandService>();
-builder.Services.AddScoped<IPaymentQueryService, PaymentQueryService>();
-
-// Payment Gateway: port (IPaymentGateway) -> adapter -> anti-corruption layer -> external provider
-builder.Services.AddScoped<IExternalPaymentProviderApi, SimulatedExternalPaymentProviderApi>();
-builder.Services.AddScoped<PaymentGatewayAcl>();
-builder.Services.AddScoped<IPaymentGateway, PaymentGatewayAdapter>();
-
-// Shared Bounded Context
+// MySQL database; the domain events interceptor publishes the aggregate events after each save
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+    options.UseMySQL(connectionString)
+        .AddInterceptors(serviceProvider.GetRequiredService<DispatchDomainEventsInterceptor>()));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<DispatchDomainEventsInterceptor>();
 
-// Add Cortex Mediator for Event Handling
-builder.Services.AddCortexMediator(
-    [typeof(Program)]);
+// Mediator used to publish domain events to their handlers (assembly scan)
+builder.Services.AddCortexMediator([typeof(Program)]);
+
+// ---------------------------------------------------------------------------------------------
+// Laundry Operations bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repositories
+builder.Services.AddScoped<ILaundryOrderRepository, LaundryOrderRepository>();
+builder.Services.AddScoped<ILaundryResourceRepository, LaundryResourceRepository>();
+builder.Services.AddScoped<IWashingCycleRepository, WashingCycleRepository>();
+
+// Command Services
+builder.Services.AddScoped<
+    ILaundryOrderCommandService,
+    LaundryOrderCommandService>();
+
+builder.Services.AddScoped<
+    ILaundryResourceCommandService,
+    LaundryResourceCommandService>();
+
+// Query Services
+builder.Services.AddScoped<ILaundryOrderQueryService, LaundryOrderQueryService>();
+builder.Services.AddScoped<ILaundryResourceQueryService, LaundryResourceQueryService>();
+builder.Services.AddScoped<IWashingCycleQueryService, WashingCycleQueryService>();
+
+// Facade offered to the other bounded contexts
+builder.Services.AddScoped<ILaundryOperationsContextFacade, LaundryOperationsContextFacade>();
+
+// ---------------------------------------------------------------------------------------------
+// Order Management bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repository, command and query services, REST assembler and the facade offered to other contexts
+builder.Services.AddOrderManagement();
+
+// ---------------------------------------------------------------------------------------------
+// Pickups and Deliveries bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repository, command and query services and the anti-corruption layer towards Order Management
+builder.Services.AddPickupsDeliveries();
+
+// ---------------------------------------------------------------------------------------------
+// Subscription and Payment bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repositories, command and query services and the payment gateway (simulated external provider)
+builder.Services.AddSubscriptionPayment();
 
 var app = builder.Build();
 
-// Create the database schema on startup if it does not exist yet.
-// Replace with context.Database.Migrate() once the team adds EF Core migrations.
+// ---------------------------------------------------------------------------------------------
+// Database
+// ---------------------------------------------------------------------------------------------
+
+// Apply pending EF Core migrations at startup.
+// In Development, run with --init-db to also load the Laundry Operations seed data.
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await context.Database.MigrateAsync();
+
+    if (app.Environment.IsDevelopment() && args.Contains("--init-db"))
+        await DevelopmentSeed.InitializeAsync(context);
 }
 
-// Apply CORS policy
-app.UseCors("AllowAllPolicy");
+// ---------------------------------------------------------------------------------------------
+// HTTP request pipeline
+// ---------------------------------------------------------------------------------------------
 
-// Configure the HTTP request pipeline
 app.UseExceptionHandler();
 
-var supportedCultures = new [] { "en", "es" };
-var localizationOptions = new RequestLocalizationOptions()
+var supportedCultures = new[] { "en", "es" };
+app.UseRequestLocalization(options => options
     .SetDefaultCulture(supportedCultures[0])
     .AddSupportedCultures(supportedCultures)
-    .AddSupportedUICultures(supportedCultures);
-
-app.UseRequestLocalization(localizationOptions);
+    .AddSupportedUICultures(supportedCultures));
 
 if (app.Environment.IsDevelopment())
 {
-    // Enable OpenAPI/Scalar documentation endpoints in development environment
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowAllPolicy");
 app.MapControllers();
 
 app.Run();
