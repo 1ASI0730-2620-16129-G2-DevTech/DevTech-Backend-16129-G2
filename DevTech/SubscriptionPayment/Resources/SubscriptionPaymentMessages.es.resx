@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <data name="SubscriptionPlanCreated" xml:space="preserve">
+    <value>Plan de suscripción creado exitosamente.</value>
+  </data>
+    <data name="SubscriptionActivated" xml:space="preserve">
+    <value>Suscripción activada exitosamente.</value>
+  </data>
+    <data name="SubscriptionCancelled" xml:space="preserve">
+    <value>Suscripción cancelada exitosamente.</value>
+  </data>
+    <data name="PaymentProcessed" xml:space="preserve">
+    <value>Pago procesado exitosamente.</value>
+  </data>
+    <data name="PaymentConfirmed" xml:space="preserve">
+    <value>Pago confirmado exitosamente.</value>
+  </data>
+
+    <data name="Title.SubscriptionPlanNotFound" xml:space="preserve">
+    <value>Plan de suscripción no encontrado</value>
+  </data>
+    <data name="Title.InvalidSubscriptionPlanData" xml:space="preserve">
+    <value>Datos del plan de suscripción no válidos</value>
+  </data>
+    <data name="Title.InvalidSubscriptionData" xml:space="preserve">
+    <value>Datos de suscripción no válidos</value>
+  </data>
+    <data name="Title.SubscriptionNotFound" xml:space="preserve">
+    <value>Suscripción no encontrada</value>
+  </data>
+    <data name="Title.ActiveSubscriptionAlreadyExists" xml:space="preserve">
+    <value>Ya existe una suscripción activa</value>
+  </data>
+    <data name="Title.SubscriptionNotActive" xml:space="preserve">
+    <value>La suscripción no está activa</value>
+  </data>
+    <data name="Title.InsufficientCredits" xml:space="preserve">
+    <value>Créditos insuficientes</value>
+  </data>
+    <data name="Title.PaymentNotFound" xml:space="preserve">
+    <value>Pago no encontrado</value>
+  </data>
+    <data name="Title.InvalidPaymentData" xml:space="preserve">
+    <value>Datos de pago no válidos</value>
+  </data>
+    <data name="Title.PaymentRejected" xml:space="preserve">
+    <value>Pago rechazado</value>
+  </data>
+    <data name="Title.InvalidPaymentStatus" xml:space="preserve">
+    <value>Estado de pago no válido</value>
+  </data>
+    <data name="Title.PaymentGatewayUnavailable" xml:space="preserve">
+    <value>Proveedor de pagos no disponible</value>
+  </data>
+
+    <data name="SubscriptionPayment.SubscriptionPlanNotFound" xml:space="preserve">
+    <value>No se encontró el plan de suscripción indicado.</value>
+  </data>
+    <data name="SubscriptionPayment.InvalidSubscriptionPlanData" xml:space="preserve">
+    <value>El plan de suscripción requiere un nombre, un precio positivo, una moneda válida de 3 letras, y créditos y duración positivos.</value>
+  </data>
+    <data name="SubscriptionPayment.InvalidSubscriptionData" xml:space="preserve">
+    <value>La suscripción requiere un id de cliente válido.</value>
+  </data>
+    <data name="SubscriptionPayment.SubscriptionNotFound" xml:space="preserve">
+    <value>No se encontró la suscripción indicada.</value>
+  </data>
+    <data name="SubscriptionPayment.ActiveSubscriptionNotFound" xml:space="preserve">
+    <value>El cliente no tiene una suscripción activa.</value>
+  </data>
+    <data name="SubscriptionPayment.CustomerSubscriptionNotFound" xml:space="preserve">
+    <value>El cliente no tiene ninguna suscripción.</value>
+  </data>
+    <data name="SubscriptionPayment.ActiveSubscriptionAlreadyExists" xml:space="preserve">
+    <value>El cliente ya tiene una suscripción activa.</value>
+  </data>
+    <data name="SubscriptionPayment.SubscriptionNotActive" xml:space="preserve">
+    <value>La suscripción no está activa.</value>
+  </data>
+    <data name="SubscriptionPayment.InsufficientCredits" xml:space="preserve">
+    <value>La suscripción no tiene créditos disponibles.</value>
+  </data>
+    <data name="SubscriptionPayment.PaymentNotFound" xml:space="preserve">
+    <value>No se encontró el pago indicado.</value>
+  </data>
+    <data name="SubscriptionPayment.InvalidPaymentData" xml:space="preserve">
+    <value>El pago requiere un monto positivo, una moneda válida de 3 letras y un token de tarjeta.</value>
+  </data>
+    <data name="SubscriptionPayment.PaymentRejected" xml:space="preserve">
+    <value>El proveedor de pagos rechazó el pago.</value>
+  </data>
+    <data name="SubscriptionPayment.InvalidPaymentStatus" xml:space="preserve">
+    <value>Solo se puede confirmar un pago aprobado en estado PENDING.</value>
+  </data>
+    <data name="SubscriptionPayment.PaymentGatewayUnavailable" xml:space="preserve">
+    <value>El proveedor de pagos no está disponible en este momento.</value>
+  </data>
+</root>

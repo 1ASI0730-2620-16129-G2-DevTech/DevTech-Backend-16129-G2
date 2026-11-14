@@ -3,6 +3,7 @@ using DevTech.LaundryOperations.Infrastructure.Persistence.EntityFrameworkCore.C
 using DevTech.OrderManagement.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using DevTech.PickupsDeliveries.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
+using DevTech.SubscriptionPayment.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using Microsoft.EntityFrameworkCore;
 namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
 
@@ -19,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         builder.ApplyLaundryOperationsConfiguration();
         builder.ApplyOrderManagementConfiguration();
         builder.ApplyPickupsDeliveriesConfiguration();
+        builder.ApplySubscriptionPaymentConfiguration();
         builder.UseSnakeCaseNamingConvention();
     }
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

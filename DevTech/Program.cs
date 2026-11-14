@@ -1,3 +1,4 @@
+using Cortex.Mediator.DependencyInjection;
 using DevTech.LaundryOperations.Application.Acl;
 using DevTech.LaundryOperations.Application.CommandServices;
 using DevTech.LaundryOperations.Application.Internal.CommandServices;
@@ -14,9 +15,11 @@ using DevTech.Resources;
 using DevTech.Shared.Domain.Repositories;
 using DevTech.Shared.Infrastructure.Interfaces.AspNetCore.Configuration;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
+using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
 using DevTech.Shared.Infrastructure.Pipeline.Middleware.Components;
 using DevTech.Shared.Interfaces.Rest.ProblemDetails;
+using DevTech.SubscriptionPayment.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -47,6 +50,15 @@ builder.Services.AddOpenApi(options =>
     options.AddSchemaTransformer(LocalizedOpenApiAssembler.TransformSchemaAsync);
 });
 
+// CORS: lets the Web App (frontend) consume this API from another origin
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAllPolicy",
+        policy => policy.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+});
+
 // Clock used by the domain rules that depend on the current date and time
 builder.Services.AddSingleton(TimeProvider.System);
 
@@ -58,8 +70,15 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
                        ?? throw new InvalidOperationException(
                            "Connection string 'DefaultConnection' was not found. Add it to appsettings.Development.json.");
 
-builder.Services.AddDbContext<AppDbContext>(options => options.UseMySQL(connectionString));
+// MySQL database; the domain events interceptor publishes the aggregate events after each save
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+    options.UseMySQL(connectionString)
+        .AddInterceptors(serviceProvider.GetRequiredService<DispatchDomainEventsInterceptor>()));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<DispatchDomainEventsInterceptor>();
+
+// Mediator used to publish domain events to their handlers (assembly scan)
+builder.Services.AddCortexMediator([typeof(Program)]);
 
 // ---------------------------------------------------------------------------------------------
 // Laundry Operations bounded context
@@ -101,6 +120,13 @@ builder.Services.AddOrderManagement();
 // Repository, command and query services and the anti-corruption layer towards Order Management
 builder.Services.AddPickupsDeliveries();
 
+// ---------------------------------------------------------------------------------------------
+// Subscription and Payment bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repositories, command and query services and the payment gateway (simulated external provider)
+builder.Services.AddSubscriptionPayment();
+
 var app = builder.Build();
 
 // ---------------------------------------------------------------------------------------------
@@ -137,6 +163,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowAllPolicy");
 app.MapControllers();
 
 app.Run();

@@ -18,7 +18,9 @@ public sealed class DispatchDomainEventsInterceptor(IMediator mediator,
         foreach (var root in roots) root.ClearDomainEvents();
         foreach (var notification in events)
         {
-            try { await mediator.PublishAsync(notification, CancellationToken.None); }
+            // Publish using the runtime (concrete) event type; publishing it as INotification would not
+            // reach the IEventHandler<TEvent> registered for that specific event.
+            try { await mediator.PublishAsync((dynamic)notification, CancellationToken.None); }
             catch (Exception exception)
             {
                 // Database commit already succeeded: never tell the caller to retry the mutation.

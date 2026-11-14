@@ -330,6 +330,133 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                     b.ToTable("pickup_deliveries");
                 });
 
+            modelBuilder.Entity("DevTech.SubscriptionPayment.Domain.Model.Aggregates.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CreatedAt")
+                        .HasColumnType("datetime")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int")
+                        .HasColumnName("customer_id");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int")
+                        .HasColumnName("order_id");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("datetime")
+                        .HasColumnName("processed_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("transaction_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_payments");
+
+                    b.HasIndex("OrderId")
+                        .HasDatabaseName("i_x_payments_order_id");
+
+                    b.ToTable("payments");
+                });
+
+            modelBuilder.Entity("DevTech.SubscriptionPayment.Domain.Model.Aggregates.Subscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CreatedAt")
+                        .HasColumnType("datetime")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Credits")
+                        .HasColumnType("int")
+                        .HasColumnName("credits");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateOnly>("ExpirationDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expiration_date");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int")
+                        .HasColumnName("plan_id");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_subscriptions");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("i_x_subscriptions_customer_id");
+
+                    b.HasIndex("PlanId")
+                        .HasDatabaseName("i_x_subscriptions_plan_id");
+
+                    b.ToTable("subscriptions");
+                });
+
+            modelBuilder.Entity("DevTech.SubscriptionPayment.Domain.Model.Aggregates.SubscriptionPlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Credits")
+                        .HasColumnType("int")
+                        .HasColumnName("credits");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int")
+                        .HasColumnName("duration_days");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_subscription_plans");
+
+                    b.ToTable("subscription_plans");
+                });
+
             modelBuilder.Entity("DevTech.LaundryOperations.Domain.Model.Aggregates.LaundryOrder", b =>
                 {
                     b.HasOne("DevTech.LaundryOperations.Domain.Model.Aggregates.LaundryResource", null)
@@ -353,6 +480,82 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("f_k_garment_items_orders_order_id");
+                });
+
+            modelBuilder.Entity("DevTech.SubscriptionPayment.Domain.Model.Aggregates.Payment", b =>
+                {
+                    b.OwnsOne("DevTech.Shared.Domain.Model.ValueObjects.Money", "Amount", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .HasColumnType("int")
+                                .HasColumnName("id");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(10, 2)
+                                .HasColumnType("decimal(10,2)")
+                                .HasColumnName("amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("varchar(3)")
+                                .HasColumnName("currency");
+
+                            b1.HasKey("Id")
+                                .HasName("p_k_payments");
+
+                            b1.ToTable("payments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("Id")
+                                .HasConstraintName("f_k_payments_payments_id");
+                        });
+
+                    b.Navigation("Amount")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DevTech.SubscriptionPayment.Domain.Model.Aggregates.Subscription", b =>
+                {
+                    b.HasOne("DevTech.SubscriptionPayment.Domain.Model.Aggregates.SubscriptionPlan", null)
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_subscriptions__subscription_plan_plan_id");
+                });
+
+            modelBuilder.Entity("DevTech.SubscriptionPayment.Domain.Model.Aggregates.SubscriptionPlan", b =>
+                {
+                    b.OwnsOne("DevTech.Shared.Domain.Model.ValueObjects.Money", "Price", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .HasColumnType("int")
+                                .HasColumnName("id");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(10, 2)
+                                .HasColumnType("decimal(10,2)")
+                                .HasColumnName("price");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("varchar(3)")
+                                .HasColumnName("currency");
+
+                            b1.HasKey("Id")
+                                .HasName("p_k_subscription_plans");
+
+                            b1.ToTable("subscription_plans");
+
+                            b1.WithOwner()
+                                .HasForeignKey("Id")
+                                .HasConstraintName("f_k_subscription_plans_subscription_plans_id");
+                        });
+
+                    b.Navigation("Price")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("DevTech.OrderManagement.Domain.Model.Aggregates.Order", b =>
