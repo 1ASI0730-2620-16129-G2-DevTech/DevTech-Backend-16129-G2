@@ -24,6 +24,17 @@ public class PaymentsController(
     ProblemDetailsFactory problemDetailsFactory)
     : ControllerBase
 {
+    [HttpGet]
+    [EndpointSummary("Get all payments")]
+    [EndpointDescription("Get the payments, newest first. Use customerId to get only the payments of a customer")]
+    [ProducesResponseType(typeof(IEnumerable<PaymentResource>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllPayments([FromQuery] int? customerId, CancellationToken cancellationToken)
+    {
+        var getAllPaymentsQuery = new GetAllPaymentsQuery(customerId);
+        var payments = await paymentQueryService.Handle(getAllPaymentsQuery, cancellationToken);
+        return Ok(payments.Select(PaymentResourceFromEntityAssembler.ToResourceFromEntity));
+    }
+
     [HttpGet("{paymentId:int}")]
     [EndpointSummary("Get a payment by its id")]
     [EndpointDescription("Get a payment by its id")]

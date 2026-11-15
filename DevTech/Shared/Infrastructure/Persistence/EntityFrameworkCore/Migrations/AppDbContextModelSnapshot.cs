@@ -194,7 +194,7 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .HasColumnType("varchar(20)")
                         .HasColumnName("delivery_method");
 
-                    b.Property<DateOnly>("EstimatedDeliveryDate")
+                    b.Property<DateTime>("EstimatedDeliveryDate")
                         .HasColumnType("date")
                         .HasColumnName("estimated_delivery_date");
 
@@ -345,9 +345,15 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .HasColumnType("int")
                         .HasColumnName("customer_id");
 
-                    b.Property<int>("OrderId")
-                        .HasColumnType("int")
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("char(36)")
                         .HasColumnName("order_id");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)")
+                        .HasColumnName("payment_method");
 
                     b.Property<DateTimeOffset?>("ProcessedAt")
                         .HasColumnType("datetime")
@@ -396,7 +402,7 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .HasColumnType("int")
                         .HasColumnName("customer_id");
 
-                    b.Property<DateOnly>("ExpirationDate")
+                    b.Property<DateTime>("ExpirationDate")
                         .HasColumnType("date")
                         .HasColumnName("expiration_date");
 
@@ -404,7 +410,7 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .HasColumnType("int")
                         .HasColumnName("plan_id");
 
-                    b.Property<DateOnly>("StartDate")
+                    b.Property<DateTime>("StartDate")
                         .HasColumnType("date")
                         .HasColumnName("start_date");
 
@@ -455,6 +461,67 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .HasName("p_k_subscription_plans");
 
                     b.ToTable("subscription_plans");
+                });
+
+            modelBuilder.Entity("DevTech.TrackingNotifications.Domain.Model.Aggregates.OrderTracking", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CurrentStage")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("current_stage");
+
+                    b.Property<DateTimeOffset?>("EstimatedDelivery")
+                        .HasColumnType("datetime")
+                        .HasColumnName("estimated_delivery");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("char(36)")
+                        .HasColumnName("order_id");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_order_trackings");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_order_trackings_order_id");
+
+                    b.ToTable("order_trackings");
+                });
+
+            modelBuilder.Entity("DevTech.TrackingNotifications.Domain.Model.Entities.TrackingStageRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetime")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<int>("OrderTrackingId")
+                        .HasColumnType("int")
+                        .HasColumnName("order_tracking_id");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("stage");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_tracking_stage_records");
+
+                    b.HasIndex("OrderTrackingId")
+                        .HasDatabaseName("i_x_tracking_stage_records_order_tracking_id");
+
+                    b.ToTable("tracking_stage_records");
                 });
 
             modelBuilder.Entity("DevTech.LaundryOperations.Domain.Model.Aggregates.LaundryOrder", b =>
@@ -558,9 +625,24 @@ namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Migratio
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("DevTech.TrackingNotifications.Domain.Model.Entities.TrackingStageRecord", b =>
+                {
+                    b.HasOne("DevTech.TrackingNotifications.Domain.Model.Aggregates.OrderTracking", null)
+                        .WithMany("History")
+                        .HasForeignKey("OrderTrackingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("f_k_tracking_stage_records_order_trackings_order_tracking_id");
+                });
+
             modelBuilder.Entity("DevTech.OrderManagement.Domain.Model.Aggregates.Order", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("DevTech.TrackingNotifications.Domain.Model.Aggregates.OrderTracking", b =>
+                {
+                    b.Navigation("History");
                 });
 #pragma warning restore 612, 618
         }

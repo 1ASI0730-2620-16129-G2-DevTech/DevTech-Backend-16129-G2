@@ -23,7 +23,7 @@ namespace DevTech.PickupsDeliveries.Application.Internal.CommandServices;
 ///         <item><description>The order does not already have a service of the same type.</description></item>
 ///         <item><description>The order exists in Order Management.</description></item>
 ///         <item><description>For a delivery, the order was created with the home delivery method.</description></item>
-///         <item><description>For a delivery, the order is ready.</description></item>
+///         <item><description>A delivery can be scheduled at any status, from the moment the order is registered.</description></item>
 ///     </list>
 /// </remarks>
 /// <param name="pickupDeliveryRepository">The pickup and delivery repository</param>
@@ -97,13 +97,8 @@ public class PickupDeliveryCommandService(
                         SchedulePickupDeliveryError.OrderDeliveryMethodMismatch);
                 }
 
-                if (!orderStatus.IsReady)
-                {
-                    logger.LogWarning("Delivery scheduling attempt for an order that is not ready. OrderId: {OrderId}",
-                        command.OrderId);
-                    return new Result<PickupDelivery, SchedulePickupDeliveryError>.Failure(
-                        SchedulePickupDeliveryError.OrderNotReady);
-                }
+                // The home delivery is scheduled when the order is registered (for its estimated delivery date),
+                // so the order does not need to be ready yet.
             }
 
             var pickupDelivery = new PickupDelivery(command);

@@ -12,4 +12,6 @@ public interface IPaymentQueryService
     ///     Handles the get payment by id query.
     /// </summary>
     Task<Payment?> Handle(GetPaymentByIdQuery query, CancellationToken cancellationToken);
+
+    Task<IEnumerable<Payment>> Handle(GetAllPaymentsQuery query, CancellationToken cancellationToken);
 }

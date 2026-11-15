@@ -4,6 +4,7 @@ using DevTech.OrderManagement.Infrastructure.Persistence.EntityFrameworkCore.Con
 using DevTech.PickupsDeliveries.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using DevTech.SubscriptionPayment.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
+using DevTech.TrackingNotifications.Infrastructure.Persistence.EntityFrameworkCore.Configuration.Extensions;
 using Microsoft.EntityFrameworkCore;
 namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
 
@@ -14,6 +15,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         builder.AddInterceptors(new DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors.AuditableEntityInterceptor());
         base.OnConfiguring(builder);
     }
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        // MySQL provider reads DATE columns as DateTime; convert every DateOnly property explicitly
+        configurationBuilder.Properties<DateOnly>()
+            .HaveConversion<DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.ValueConverters.DateOnlyToDateTimeConverter>()
+            .HaveColumnType("date");
+    }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -21,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         builder.ApplyOrderManagementConfiguration();
         builder.ApplyPickupsDeliveriesConfiguration();
         builder.ApplySubscriptionPaymentConfiguration();
+        builder.ApplyTrackingNotificationsConfiguration();
         builder.UseSnakeCaseNamingConvention();
     }
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

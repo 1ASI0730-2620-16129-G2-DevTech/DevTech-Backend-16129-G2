@@ -20,6 +20,7 @@ using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Repositories
 using DevTech.Shared.Infrastructure.Pipeline.Middleware.Components;
 using DevTech.Shared.Interfaces.Rest.ProblemDetails;
 using DevTech.SubscriptionPayment.Infrastructure.Configuration;
+using DevTech.TrackingNotifications.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -126,6 +127,13 @@ builder.Services.AddPickupsDeliveries();
 
 // Repositories, command and query services and the payment gateway (simulated external provider)
 builder.Services.AddSubscriptionPayment();
+
+// ---------------------------------------------------------------------------------------------
+// Tracking & Notifications bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repository and application services; its event handlers follow Laundry Operations (StageAdvanced)
+builder.Services.AddTrackingNotifications();
 
 var app = builder.Build();
 
