@@ -31,29 +31,35 @@ public partial class Payment : AggregateRoot
     /// <param name="customerId">The customer identifier.</param>
     /// <param name="orderId">The order identifier.</param>
     /// <param name="amount">The amount to charge. Must be greater than zero.</param>
-    public Payment(int customerId, int orderId, Money amount) : this()
+    /// <param name="paymentMethod">How the customer pays (Yape, card or cash).</param>
+    public Payment(int customerId, Guid orderId, Money amount, EPaymentMethod paymentMethod = EPaymentMethod.CARD)
+        : this()
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(customerId);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(orderId);
+        if (orderId == Guid.Empty) throw new ArgumentException("The order id is required.", nameof(orderId));
         ArgumentNullException.ThrowIfNull(amount);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount.Amount);
+        if (!Enum.IsDefined(paymentMethod))
+            throw new ArgumentOutOfRangeException(nameof(paymentMethod), paymentMethod, "Unknown payment method.");
         CustomerId = customerId;
         OrderId = orderId;
         Amount = amount;
+        PaymentMethod = paymentMethod;
     }
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="Payment" /> aggregate using a <see cref="ProcessPaymentCommand" />.
     /// </summary>
     public Payment(ProcessPaymentCommand command)
-        : this(command.CustomerId, command.OrderId, new Money(command.Amount, command.Currency))
+        : this(command.CustomerId, command.OrderId, new Money(command.Amount, command.Currency), command.PaymentMethod)
     {
     }
 
     public PaymentId Id { get; private set; }
     public int CustomerId { get; private set; }
-    public int OrderId { get; private set; }
+    public Guid OrderId { get; private set; }
     public Money Amount { get; private set; }
+    public EPaymentMethod PaymentMethod { get; private set; } = EPaymentMethod.CARD;
     public EPaymentStatus Status { get; private set; }
     public string? TransactionId { get; private set; }
     public DateTimeOffset? ProcessedAt { get; private set; }

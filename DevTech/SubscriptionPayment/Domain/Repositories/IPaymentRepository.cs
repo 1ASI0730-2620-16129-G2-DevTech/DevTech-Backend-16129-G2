@@ -8,4 +8,10 @@ namespace DevTech.SubscriptionPayment.Domain.Repositories;
 /// </summary>
 public interface IPaymentRepository : IBaseRepository<Payment>
 {
+    /// <summary>
+    ///     Lists the payments, newest first, optionally only the ones of a customer.
+    /// </summary>
+    /// <param name="customerId">The customer identifier; null lists the payments of every customer.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    Task<IEnumerable<Payment>> ListByCustomerAsync(int? customerId, CancellationToken cancellationToken = default);
 }

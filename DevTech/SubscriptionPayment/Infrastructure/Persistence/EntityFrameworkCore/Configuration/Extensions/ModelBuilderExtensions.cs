@@ -65,6 +65,8 @@ public static class ModelBuilderExtensions
             amount.Property(m => m.Amount).HasColumnName("amount").HasPrecision(10, 2).IsRequired();
             amount.Property(m => m.Currency).HasColumnName("currency").HasMaxLength(3).IsRequired();
         });
+        // Payments registered before the method existed get CARD (default value set in the AddPaymentMethod migration).
+        builder.Entity<Payment>().Property(p => p.PaymentMethod).HasConversion<string>().HasMaxLength(10).IsRequired();
         builder.Entity<Payment>().Property(p => p.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Entity<Payment>().Property(p => p.TransactionId).HasMaxLength(100);
         builder.Entity<Payment>().Property(p => p.ProcessedAt);

@@ -16,4 +16,9 @@ public class PaymentQueryService(IPaymentRepository paymentRepository) : IPaymen
     {
         return await paymentRepository.FindByIdAsNoTrackingAsync(query.PaymentId, cancellationToken);
     }
+
+    public async Task<IEnumerable<Payment>> Handle(GetAllPaymentsQuery query, CancellationToken cancellationToken)
+    {
+        return await paymentRepository.ListByCustomerAsync(query.CustomerId, cancellationToken);
+    }
 }

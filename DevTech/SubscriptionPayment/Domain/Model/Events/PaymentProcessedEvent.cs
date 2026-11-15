@@ -6,4 +6,4 @@ namespace DevTech.SubscriptionPayment.Domain.Model.Events;
 /// <summary>
 ///     Domain event raised when a payment is approved by the payment provider.
 /// </summary>
-public record PaymentProcessedEvent(PaymentId PaymentId, int OrderId, string TransactionId) : DomainEvent;
+public record PaymentProcessedEvent(PaymentId PaymentId, Guid OrderId, string TransactionId) : DomainEvent;

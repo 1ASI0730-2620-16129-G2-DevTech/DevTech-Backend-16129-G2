@@ -6,4 +6,4 @@ namespace DevTech.SubscriptionPayment.Domain.Model.Events;
 /// <summary>
 ///     Domain event raised when a payment is rejected by the payment provider.
 /// </summary>
-public record PaymentFailedEvent(PaymentId PaymentId, int OrderId) : DomainEvent;
+public record PaymentFailedEvent(PaymentId PaymentId, Guid OrderId) : DomainEvent;

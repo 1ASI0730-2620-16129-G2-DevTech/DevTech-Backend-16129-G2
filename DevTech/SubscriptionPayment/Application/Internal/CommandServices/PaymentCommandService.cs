@@ -26,8 +26,9 @@ public class PaymentCommandService(
     /// <inheritdoc />
     public async Task<Result<Payment>> Handle(ProcessPaymentCommand command, CancellationToken cancellationToken)
     {
-        if (command.CustomerId <= 0 || command.OrderId <= 0 || command.Amount <= 0 ||
-            !Money.IsValidCurrency(command.Currency) || string.IsNullOrWhiteSpace(command.CardToken))
+        if (command.CustomerId <= 0 || command.OrderId == Guid.Empty || command.Amount <= 0 ||
+            !Money.IsValidCurrency(command.Currency) || string.IsNullOrWhiteSpace(command.CardToken) ||
+            !Enum.IsDefined(command.PaymentMethod))
             return Result<Payment>.Failure(SubscriptionPaymentErrors.InvalidPaymentData,
                 SubscriptionPaymentError.InvalidPaymentData);
 

@@ -14,6 +14,7 @@ public static class PaymentResourceFromEntityAssembler
             throw new ArgumentNullException(nameof(entity),
                 "Payment entity cannot be null when converting to resource.");
         return new PaymentResource(entity.Id, entity.CustomerId, entity.OrderId, entity.Amount.Amount,
-            entity.Amount.Currency, entity.Status.ToString(), entity.TransactionId, entity.ProcessedAt);
+            entity.Amount.Currency, entity.PaymentMethod.ToString(), entity.Status.ToString(), entity.TransactionId,
+            entity.ProcessedAt);
     }
 }
