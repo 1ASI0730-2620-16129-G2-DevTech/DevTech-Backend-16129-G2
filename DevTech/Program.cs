@@ -1,41 +1,177 @@
+using Cortex.Mediator.DependencyInjection;
+using DevTech.LaundryOperations.Application.Acl;
+using DevTech.LaundryOperations.Application.CommandServices;
+using DevTech.LaundryOperations.Application.Internal.CommandServices;
+using DevTech.LaundryOperations.Application.Internal.QueryServices;
+using DevTech.LaundryOperations.Application.QueryServices;
+using DevTech.LaundryOperations.Domain.Repositories;
+using DevTech.LaundryOperations.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
+using DevTech.LaundryOperations.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
+using DevTech.LaundryOperations.Interfaces.Acl;
+using DevTech.OrderManagement.Infrastructure.Configuration;
+using DevTech.PickupsDeliveries.Infrastructure.Configuration;
+using DevTech.PickupsDeliveries.Interfaces.Rest.Transform;
+using DevTech.Resources;
+using DevTech.Shared.Domain.Repositories;
+using DevTech.Shared.Infrastructure.Interfaces.AspNetCore.Configuration;
+using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration;
+using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Interceptors;
+using DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
+using DevTech.Shared.Infrastructure.Pipeline.Middleware.Components;
+using DevTech.Shared.Interfaces.Rest.ProblemDetails;
+using DevTech.SubscriptionPayment.Infrastructure.Configuration;
+using DevTech.TrackingNotifications.Infrastructure.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// ---------------------------------------------------------------------------------------------
+// Web API
+// ---------------------------------------------------------------------------------------------
+
+// Lower case URLs and kebab case controller routes (for example: api/v1/laundry-orders)
+builder.Services.AddRouting(options => options.LowercaseUrls = true);
+builder.Services.AddControllers(options => options.Conventions.Add(new KebabCaseRouteNamingConvention()))
+    .AddDataAnnotationsLocalization(options =>
+        options.DataAnnotationLocalizerProvider = (_, factory) => factory.Create(typeof(SharedResource)));
+
+// Localization: Shared/Resources/Errors/ErrorMessages(.es).resx and Resources/SharedResource(.en/.es).resx
+builder.Services.AddLocalization();
+
+// Localized RFC 7807 problem details for unhandled exceptions
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddScoped<ProblemDetailsFactory>();
+
+// OpenAPI document (with the localized descriptions of the Pickups and Deliveries endpoints)
+builder.Services.AddOpenApi(options =>
+{
+    options.AddOperationTransformer(LocalizedOpenApiAssembler.TransformOperationAsync);
+    options.AddSchemaTransformer(LocalizedOpenApiAssembler.TransformSchemaAsync);
+});
+
+// CORS: lets the Web App (frontend) consume this API from another origin
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAllPolicy",
+        policy => policy.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+});
+
+// Clock used by the domain rules that depend on the current date and time
+builder.Services.AddSingleton(TimeProvider.System);
+
+// ---------------------------------------------------------------------------------------------
+// Shared kernel
+// ---------------------------------------------------------------------------------------------
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                       ?? throw new InvalidOperationException(
+                           "Connection string 'DefaultConnection' was not found. Add it to appsettings.Development.json.");
+
+// MySQL database; the domain events interceptor publishes the aggregate events after each save
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+    options.UseMySQL(connectionString)
+        .AddInterceptors(serviceProvider.GetRequiredService<DispatchDomainEventsInterceptor>()));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<DispatchDomainEventsInterceptor>();
+
+// Mediator used to publish domain events to their handlers (assembly scan)
+builder.Services.AddCortexMediator([typeof(Program)]);
+
+// ---------------------------------------------------------------------------------------------
+// Laundry Operations bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repositories
+builder.Services.AddScoped<ILaundryOrderRepository, LaundryOrderRepository>();
+builder.Services.AddScoped<ILaundryResourceRepository, LaundryResourceRepository>();
+builder.Services.AddScoped<IWashingCycleRepository, WashingCycleRepository>();
+
+// Command Services
+builder.Services.AddScoped<
+    ILaundryOrderCommandService,
+    LaundryOrderCommandService>();
+
+builder.Services.AddScoped<
+    ILaundryResourceCommandService,
+    LaundryResourceCommandService>();
+
+// Query Services
+builder.Services.AddScoped<ILaundryOrderQueryService, LaundryOrderQueryService>();
+builder.Services.AddScoped<ILaundryResourceQueryService, LaundryResourceQueryService>();
+builder.Services.AddScoped<IWashingCycleQueryService, WashingCycleQueryService>();
+
+// Facade offered to the other bounded contexts
+builder.Services.AddScoped<ILaundryOperationsContextFacade, LaundryOperationsContextFacade>();
+
+// ---------------------------------------------------------------------------------------------
+// Order Management bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repository, command and query services, REST assembler and the facade offered to other contexts
+builder.Services.AddOrderManagement();
+
+// ---------------------------------------------------------------------------------------------
+// Pickups and Deliveries bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repository, command and query services and the anti-corruption layer towards Order Management
+builder.Services.AddPickupsDeliveries();
+
+// ---------------------------------------------------------------------------------------------
+// Subscription and Payment bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repositories, command and query services and the payment gateway (simulated external provider)
+builder.Services.AddSubscriptionPayment();
+
+// ---------------------------------------------------------------------------------------------
+// Tracking & Notifications bounded context
+// ---------------------------------------------------------------------------------------------
+
+// Repository and application services; its event handlers follow Laundry Operations (StageAdvanced)
+builder.Services.AddTrackingNotifications();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ---------------------------------------------------------------------------------------------
+// Database
+// ---------------------------------------------------------------------------------------------
+
+// Apply pending EF Core migrations at startup.
+// In Development, run with --init-db to also load the Laundry Operations seed data.
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await context.Database.MigrateAsync();
+
+    if (app.Environment.IsDevelopment() && args.Contains("--init-db"))
+        await DevelopmentSeed.InitializeAsync(context);
+}
+
+// ---------------------------------------------------------------------------------------------
+// HTTP request pipeline
+// ---------------------------------------------------------------------------------------------
+
+app.UseExceptionHandler();
+
+var supportedCultures = new[] { "en", "es" };
+app.UseRequestLocalization(options => options
+    .SetDefaultCulture(supportedCultures[0])
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures));
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-    {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast");
+app.UseCors("AllowAllPolicy");
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

@@ -1,4 +1,4 @@
-namespace Acme.Center.Platform.Resources.Shared;
+﻿namespace DevTech.Shared.Resources;
 
 public class CommonMessages
 {

@@ -1,0 +1,33 @@
+using DevTech.SubscriptionPayment.Domain.Model.Commands;
+using DevTech.SubscriptionPayment.Domain.Model.ValueObjects;
+using DevTech.SubscriptionPayment.Interfaces.Rest.Resources;
+
+namespace DevTech.SubscriptionPayment.Interfaces.Rest.Transform;
+
+/// <summary>
+///     Assembler responsible for transforming a <see cref="CreatePaymentResource" /> into a
+///     <see cref="ProcessPaymentCommand" />.
+/// </summary>
+public static class ProcessPaymentCommandFromResourceAssembler
+{
+    public static ProcessPaymentCommand ToCommandFromResource(CreatePaymentResource resource)
+    {
+        if (resource == null)
+            throw new ArgumentNullException(nameof(resource),
+                "CreatePaymentResource cannot be null when converting to command.");
+        return new ProcessPaymentCommand(resource.CustomerId, resource.OrderId, resource.Amount, resource.Currency,
+            resource.CardToken, ToPaymentMethod(resource.PaymentMethod));
+    }
+
+    /// <summary>
+    ///     CARD when no method is sent; an unknown name becomes an undefined value, which the command service rejects
+    ///     as invalid payment data.
+    /// </summary>
+    private static EPaymentMethod ToPaymentMethod(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return EPaymentMethod.CARD;
+        return Enum.TryParse<EPaymentMethod>(value.Trim(), true, out var method) && Enum.IsDefined(method)
+            ? method
+            : (EPaymentMethod)(-1);
+    }
+}

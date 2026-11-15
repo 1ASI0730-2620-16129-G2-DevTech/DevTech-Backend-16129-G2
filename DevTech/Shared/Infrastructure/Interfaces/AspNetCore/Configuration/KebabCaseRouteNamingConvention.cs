@@ -1,7 +1,7 @@
-using Acme.Center.Platform.Shared.Infrastructure.Interfaces.AspNetCore.Configuration.Extensions;
+using DevTech.Shared.Infrastructure.Interfaces.AspNetCore.Configuration.Extensions;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 
-namespace Acme.Center.Platform.Shared.Infrastructure.Interfaces.AspNetCore.Configuration;
+namespace DevTech.Shared.Infrastructure.Interfaces.AspNetCore.Configuration;
 
 /// <summary>
 ///     This class is used to replace the default route naming convention with a kebab-case naming convention.

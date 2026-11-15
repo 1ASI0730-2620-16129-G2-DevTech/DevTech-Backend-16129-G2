@@ -1,5 +1,4 @@
-using Acme.Center.Platform.Shared.Domain.Model;
-using Acme.Center.Platform.Shared.Domain.Model.ValueObjects;
+using DevTech.Shared.Domain.Model.ValueObjects;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace DevTech.Shared.Infrastructure.Persistence.EntityFrameworkCore.Configuration.ValueConverters;
